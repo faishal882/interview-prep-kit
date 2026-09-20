@@ -131,11 +131,13 @@ export function ProgressScreen({ kitId, jobId: initialJobId }: { kitId: string; 
   if (error) {
     const e = error as { referenceId?: string };
     return (
-      <div className="space-y-3">
+      <div className="section" style={{ display: "grid", gap: 16 }}>
         <ErrorState message={formatWithRef(error)} referenceId={e?.referenceId} />
-        <button onClick={() => void retry()} disabled={retrying} className="rounded border px-3 py-1.5 text-sm">
-          {retrying ? "Retrying…" : "Retry with the same input"}
-        </button>
+        <div>
+          <button onClick={() => void retry()} disabled={retrying} className="button button-secondary">
+            {retrying ? "Retrying…" : "Retry with the same input"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -143,21 +145,22 @@ export function ProgressScreen({ kitId, jobId: initialJobId }: { kitId: string; 
   if (!job) return <Skeleton label="Loading generation progress" />;
 
   return (
-    <div>
+    <div className="section">
       <LiveRegion message={`Generation ${job.status}`} />
-      <h1 className="text-xl font-semibold">Generating your Kit…</h1>
-      <p className="mt-1 text-sm text-neutral-500">Leave and come back — generation continues. Elapsed tick: {Math.floor((now - now) / 1000) + tick * 0}s</p>
-      <ol className="mt-4 space-y-2">
+      <span className="eyebrow">Generation in progress</span>
+      <h1 className="kit-display" style={{ fontSize: "clamp(28px, 3vw, 40px)", marginTop: 16 }}>Generating your Kit…</h1>
+      <p style={{ marginTop: 8, color: "var(--copy)" }}>Leave and come back — generation continues while steps complete below.</p>
+      <ol className="step-grid" style={{ marginTop: 24, listStyle: "none", padding: 0 }}>
         {job.steps.map((s) => (
-          <li key={s.name} className="flex items-center gap-2 rounded border px-3 py-2 text-sm">
-            <span aria-label={`Step ${s.name} ${s.status}`} className="font-mono text-xs">
+          <li key={s.name} className={`step-row${s.status === "running" ? " is-active" : ""}`}>
+            <span aria-label={`Step ${s.name} ${s.status}`} className="pill" style={{ minWidth: 92, justifyContent: "center" }}>
               {s.status.toUpperCase()}
             </span>
-            <span className="font-medium">{s.name}</span>
-            {s.message ? <span className="text-neutral-500">— {s.message}</span> : null}
+            <span className="kit-display" style={{ fontWeight: 600 }}>{s.name}</span>
+            {s.message ? <span style={{ color: "var(--copy)" }}>— {s.message}</span> : null}
             {(() => {
               const ms = elapsedMs(s.started_at ?? null, s.finished_at ?? null);
-              return ms !== null ? <span className="ml-auto text-xs text-neutral-500">{(ms / 1000).toFixed(0)}s</span> : null;
+              return ms !== null ? <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--copy)" }}>{(ms / 1000).toFixed(0)}s</span> : null;
             })()}
           </li>
         ))}

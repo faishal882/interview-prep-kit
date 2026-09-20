@@ -6,17 +6,20 @@ import { BatchUpload } from "@/components/batch-upload";
 export default function NewKitPage() {
   const [tab, setTab] = useState<"single" | "batch">("single");
   return (
-    <div>
-      <h1 className="text-xl font-semibold">New Kit</h1>
-      <div role="tablist" aria-label="Create mode" className="mt-3 flex gap-2">
-        <button role="tab" aria-selected={tab === "single"} onClick={() => setTab("single")} className="rounded border px-3 py-1.5 text-sm">
+    <div className="section">
+      <div className="section-head" style={{ marginBottom: 20 }}>
+        <span className="eyebrow">Create</span>
+        <h2>New Kit</h2>
+      </div>
+      <div role="tablist" aria-label="Create mode" className="tabs">
+        <button role="tab" aria-selected={tab === "single"} onClick={() => setTab("single")}>
           Single
         </button>
-        <button role="tab" aria-selected={tab === "batch"} onClick={() => setTab("batch")} className="rounded border px-3 py-1.5 text-sm">
+        <button role="tab" aria-selected={tab === "batch"} onClick={() => setTab("batch")}>
           Batch
         </button>
       </div>
-      <div className="mt-4">{tab === "single" ? <CreateKitForm /> : <BatchUpload />}</div>
+      <div style={{ marginTop: 24 }}>{tab === "single" ? <CreateKitForm /> : <BatchUpload />}</div>
     </div>
   );
 }

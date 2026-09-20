@@ -3,8 +3,9 @@ import { originBadge, type ItemMeta } from "@/lib/types";
 
 export function OriginBadge({ meta }: { meta?: ItemMeta }) {
   const label = originBadge(meta);
+  const cls = label === "Pinned" ? "pill" : label === "Yours" ? "pill pill-teal" : label === "Edited" ? "pill" : "pill pill-neutral";
   return (
-    <span aria-label={`Origin: ${label}`} className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs dark:bg-neutral-800">
+    <span aria-label={`Origin: ${label}`} className={cls}>
       {label}
     </span>
   );
@@ -12,11 +13,11 @@ export function OriginBadge({ meta }: { meta?: ItemMeta }) {
 
 export function CoverageChip({ count, isGap }: { count: number; isGap: boolean }) {
   return isGap ? (
-    <span role="status" aria-label="Gap: no Question covers this Requirement" className="rounded bg-red-100 px-1.5 py-0.5 text-xs dark:bg-red-900">
+    <span role="status" aria-label="Gap: no Question covers this Requirement" className="pill pill-red">
       Gap
     </span>
   ) : (
-    <span aria-label={`${count} Questions cover this Requirement`} className="rounded bg-green-100 px-1.5 py-0.5 text-xs dark:bg-green-900">
+    <span aria-label={`${count} Questions cover this Requirement`} className="pill pill-teal">
       {count} covered
     </span>
   );

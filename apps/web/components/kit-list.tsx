@@ -40,7 +40,7 @@ export function KitList() {
         title="No Kits yet"
         body="A Kit turns a job description and a company website into interview Questions, Flashcards and a day-by-day Schedule."
         action={
-          <Link href="/kits/new" className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-black">
+          <Link href="/kits/new" className="button">
             Create your first Kit
           </Link>
         }
@@ -49,28 +49,33 @@ export function KitList() {
   return (
     <div>
       <LiveRegion message={live} />
-      <ul className="space-y-3">
+      <ul className="ruled-list">
         {kits.map((k) => (
-          <li key={String(k.id)} className="rounded border p-4">
-            <div className="flex items-center gap-2">
-              <Link href={`/kits/${String(k.id)}`} className="font-medium underline">
+          <li key={String(k.id)}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span className="proof-icon" aria-hidden="true">
+                {(String(k.company || k.role || k.id) as string).slice(0, 1).toUpperCase()}
+              </span>
+              <Link href={`/kits/${String(k.id)}`} className="kit-display" style={{ fontSize: 17, textDecoration: "none" }}>
                 {String(k.company || k.role || k.id)}
               </Link>
               {String(k.status) === "generating" ? (
-                <span aria-label="generating" className="rounded bg-amber-100 px-2 py-0.5 text-xs dark:bg-amber-900">
+                <span aria-label="generating" className="pill">
                   Generating…
                 </span>
               ) : (
-                <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800">{String(k.status)}</span>
+                <span className="pill pill-neutral">{String(k.status)}</span>
               )}
-              <span className="ml-auto text-xs text-neutral-500">
-                {String(k.requirement_count ?? "")} Requirements · {String(k.question_count ?? "")} Questions · {String(k.days ?? "")} days
+              <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 13, color: "var(--copy)" }}>
+                  {String(k.requirement_count ?? "")} Requirements · {String(k.question_count ?? "")} Questions · {String(k.days ?? "")} days
+                </span>
+                <button onClick={() => setPendingDelete(String(k.id))} aria-label={`Delete Kit ${String(k.id)}`} className="button button-danger button-small">
+                  Delete
+                </button>
               </span>
-              <button onClick={() => setPendingDelete(String(k.id))} aria-label={`Delete Kit ${String(k.id)}`} className="rounded border px-2 py-0.5 text-xs">
-                Delete
-              </button>
             </div>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p style={{ marginTop: 6, fontSize: 13, color: "var(--copy)" }}>
               {String(k.role || "")} · updated {k.updated_at ? new Date(Number(k.updated_at) * 1000).toLocaleString() : "—"}
             </p>
           </li>

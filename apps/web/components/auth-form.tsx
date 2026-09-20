@@ -40,45 +40,48 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
   };
 
   return (
-    <div className="mx-auto max-w-md">
-      <h1 className="text-xl font-semibold">{mode === "login" ? "Log in" : "Register"}</h1>
-      {expired ? (
-        <p role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-sm">
-          Your login session expired. Sign in again.
-        </p>
-      ) : null}
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-4 space-y-3">
-        <div>
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input id="email" type="email" autoComplete="email" {...field("email")} className="mt-1 w-full rounded border px-2 py-1.5" />
-          {errors.email ? (
-            <p role="alert" className="mt-1 text-sm text-red-700">
-              {errors.email.message}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...field("password")} className="mt-1 w-full rounded border px-2 py-1.5" />
-          {errors.password ? (
-            <p role="alert" className="mt-1 text-sm text-red-700">
-              {errors.password.message}
-            </p>
-          ) : null}
-        </div>
-        {serverError ? (
-          <p role="alert" className="mt-1 text-sm text-red-700">
-            {serverError}
+    <div className="hero-panel">
+      <div className="hero-copy" style={{ padding: "48px 40px" }}>
+        <span className="eyebrow">{mode === "login" ? "Welcome back" : "Create account"}</span>
+        <h1 style={{ fontSize: "clamp(32px, 3vw, 44px)" }}>{mode === "login" ? "Log in" : "Register"}</h1>
+        {expired ? (
+          <p role="alert" className="banner banner-warn" style={{ marginTop: 16 }}>
+            Your login session expired. Sign in again.
           </p>
         ) : null}
-        <button type="submit" disabled={isSubmitting} className="rounded bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black">
-          {mode === "login" ? "Log in" : "Create account"}
-        </button>
-      </form>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ marginTop: 24, display: "grid", gap: 16, width: "100%", maxWidth: 440 }}>
+          <div>
+            <label htmlFor="email" className="field-label">
+              Email
+            </label>
+            <input id="email" type="email" autoComplete="email" {...field("email")} className="inset-input" />
+            {errors.email ? (
+              <p role="alert" className="field-error">
+                {errors.email.message}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label htmlFor="password" className="field-label">
+              Password
+            </label>
+            <input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...field("password")} className="inset-input" />
+            {errors.password ? (
+              <p role="alert" className="field-error">
+                {errors.password.message}
+              </p>
+            ) : null}
+          </div>
+          {serverError ? (
+            <p role="alert" className="field-error">
+              {serverError}
+            </p>
+          ) : null}
+          <button type="submit" disabled={isSubmitting} className="button">
+            {mode === "login" ? "Log in" : "Create account"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
