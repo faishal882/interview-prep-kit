@@ -71,22 +71,16 @@ def _run_pipeline_sync(kit_id: str, job_id: str, case: dict, deps: dict) -> None
 
 def _deps_for_server() -> dict:
     import os
-    from app.jev.client import JevClient
     from app.llm.fake import FakeLLM
     s = get_settings()
     if os.environ.get("FAKE_LLM") or s.FAKE_LLM or not (s.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")):
         llm = FakeLLM()
-        return {"llm": llm, "providers": [llm], "jev": JevClient(), "allow_private": s.ALLOW_PRIVATE_URLS,
+        return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
                 "skip_retrieval": True, "max_pages": 4, "depth": 1}
     from app.llm.gemini import GeminiProvider
-    from app.llm.groq import GroqProvider
-    providers = [GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL)]
-    if s.GROQ_API_KEY or os.environ.get("GROQ_API_KEY"):
-        providers.append(GroqProvider(os.environ.get("GROQ_API_KEY") or s.GROQ_API_KEY, s.GROQ_MODEL))
-    return {"llm": providers[0], "providers": providers,
-            "jev": JevClient(os.environ.get("TYPESAFE_API_KEY") or s.TYPESAFE_API_KEY,
-                             enabled=bool(os.environ.get("TYPESAFE_API_KEY") or s.TYPESAFE_API_KEY)),
-            "allow_private": s.ALLOW_PRIVATE_URLS, "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
+    llm = GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL)
+    return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
+            "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
 
 
 @router.post("/api/kits")

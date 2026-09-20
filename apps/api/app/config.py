@@ -16,10 +16,6 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = ""
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"
-    GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
-    TYPESAFE_API_KEY: str = ""
-    JEV_ENABLED: bool = False
     SEARCH_API_KEY: str = ""
     MAX_CRAWL_PAGES: int = 12
     CRAWL_DEPTH: int = 2

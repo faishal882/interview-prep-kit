@@ -12,10 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from app.config import get_settings, require_credentials  # noqa: E402
 from app.domain.errors import Codes, KitError  # noqa: E402
-from app.jev.client import JevClient  # noqa: E402
 from app.llm.fake import FakeLLM  # noqa: E402
 from app.llm.gemini import GeminiProvider  # noqa: E402
-from app.llm.groq import GroqProvider  # noqa: E402
 from app.pipeline.orchestrator import run_case  # noqa: E402
 
 VERSION = "1.0"
@@ -26,18 +24,11 @@ def build_deps() -> dict:
     s = get_settings()
     if os.environ.get("FAKE_LLM") or s.FAKE_LLM:
         llm = FakeLLM()
-        return {"llm": llm, "providers": [llm], "jev": JevClient(), "allow_private": True,
+        return {"llm": llm, "allow_private": True,
                 "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
     require_credentials(s)
-    providers = []
-    if s.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY"):
-        providers.append(GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL))
-    if s.GROQ_API_KEY or os.environ.get("GROQ_API_KEY"):
-        providers.append(GroqProvider(os.environ.get("GROQ_API_KEY") or s.GROQ_API_KEY, s.GROQ_MODEL))
-    jev = JevClient(os.environ.get("TYPESAFE_API_KEY") or s.TYPESAFE_API_KEY,
-                    enabled=bool(os.environ.get("TYPESAFE_API_KEY") or s.TYPESAFE_API_KEY))
-    return {"llm": providers[0] if providers else None, "providers": providers, "jev": jev,
-            "allow_private": True, "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
+    llm = GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL)
+    return {"llm": llm, "allow_private": True, "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
 
 
 async def run_one(case: dict, deps: dict, sem: asyncio.Semaphore) -> dict:

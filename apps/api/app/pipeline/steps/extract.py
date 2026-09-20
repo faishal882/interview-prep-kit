@@ -29,10 +29,8 @@ def extract_role_metadata(jd: str) -> dict[str, str]:
 def apply_extraction(
     jd: str,
     raw: dict[str, Any],
-    jev_decisions: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict], list[str], dict, bool]:
     """Return (requirements, responsibilities, role_meta, thin)."""
-    jev_decisions = jev_decisions or {}
     seen: set[str] = set()
     reqs: list[dict] = []
     responsibilities: list[str] = list(raw.get("responsibilities") or [])
@@ -48,13 +46,8 @@ def apply_extraction(
         if key in seen:
             continue
         seen.add(key)
-        jd_key = f"jev:{key}"
-        if jd_key in jev_decisions and jev_decisions[jd_key].get("confidence", 0) >= 0.7:
-            kind = jev_decisions[jd_key].get("kind", classify_kind(f"{heading} {text}"))
-            priority = jev_decisions[jd_key].get("priority", classify_priority(text, heading))
-        else:
-            kind = item.get("kind") if item.get("kind") in ("technical", "behavioural", "domain") else classify_kind(f"{heading} {text}")
-            priority = item.get("priority") if item.get("priority") in ("must", "nice") else classify_priority(text, heading)
+        kind = item.get("kind") if item.get("kind") in ("technical", "behavioural", "domain") else classify_kind(f"{heading} {text}")
+        priority = item.get("priority") if item.get("priority") in ("must", "nice") else classify_priority(text, heading)
         reqs.append({"text": text, "evidence": evidence, "kind": kind, "priority": priority})
         if len(reqs) >= MAX_REQUIREMENTS:
             break

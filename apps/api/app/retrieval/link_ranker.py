@@ -1,4 +1,4 @@
-"""Heuristic link ranker (fallback when Jev unavailable)."""
+"""Heuristic link ranker: scores how likely a link describes hiring or the business."""
 from __future__ import annotations
 
 import re

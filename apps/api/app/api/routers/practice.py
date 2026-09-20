@@ -1,4 +1,4 @@
-"""Practice: queue, reviews, summary, answer check (Jev with fallback)."""
+"""Practice: queue, reviews, summary, answer check (literal-match coverage)."""
 from __future__ import annotations
 
 import time
@@ -66,9 +66,9 @@ async def check(kit_id: str, body: CheckBody, user: dict = Depends(current_user)
     ans = body.answer.lower()
     results = []
     for p in points:
-        # fallback: literal word-overlap check; Jev Noul would run per point when key present
+        # literal word-overlap check per outline point
         words = [w.strip(".,;:!?()\"'").lower() for w in str(p).split() if len(w) > 3]
         hit = any(w in ans for w in words) if words else (str(p).lower() in ans)
         results.append({"point": p, "covered": bool(hit)})
-    return {"results": results, "method": "literal-match fallback; Jev reads literally and won't credit implied points",
-            "limits": "coverage check only, not a quality judgment"}
+    return {"results": results, "method": "literal word-overlap per outline point",
+            "limits": "coverage check only, not a quality judgment; implied points are not credited"}

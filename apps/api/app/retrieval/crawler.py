@@ -22,7 +22,6 @@ async def crawl(
     depth: int = 2,
     allow_private: bool = False,
     client=None,
-    jev_rank=None,
     research_log: dict | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Return (pages, pages_used_urls). Skips recorded into research_log['fetches']."""
@@ -55,11 +54,6 @@ async def crawl(
                 if lu in seen:
                     continue
                 s = rank_score(lu, link.get("anchor", ""))
-                if jev_rank is not None:
-                    try:
-                        s = max(s, float(jev_rank(link)))
-                    except Exception:
-                        pass
                 heapq.heappush(heap, (-s, d + 1, lu, link.get("anchor", "")))
     if research_log is not None:
         research_log.setdefault("fetches", []).extend(skips)

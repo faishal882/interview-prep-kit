@@ -8,7 +8,6 @@ from typing import Any, Callable
 
 from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
-from app.jev.client import JevClient
 from app.llm.router import generate as llm_generate, truncate
 from app.pipeline.steps import signals as signal_step
 from app.pipeline.steps.classify import classify_kind, classify_priority
@@ -44,6 +43,19 @@ def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+_INJECTION_MARKERS = (
+    "ignore previous instructions",
+    "disregard previous",
+    "system prompt",
+    "you are now",
+)
+
+
+def _looks_like_injection(text: str) -> bool:
+    low = text.lower()
+    return any(m in low for m in _INJECTION_MARKERS)
+
+
 async def run_case(
     case: dict,
     deps: dict,
@@ -54,8 +66,6 @@ async def run_case(
             on_event({"step": step, "status": status, "message": message})
 
     llm = deps.get("llm")
-    providers = deps.get("providers") or ([llm] if llm else [])
-    jev: JevClient = deps.get("jev") or JevClient()
     allow_private: bool = bool(deps.get("allow_private"))
     http_client = deps.get("http_client")
     skip_retrieval: bool = bool(deps.get("skip_retrieval"))
@@ -68,7 +78,7 @@ async def run_case(
 
     if not jd.strip():
         raise KitError(Codes.INVALID_INPUT, "empty job description")
-    if not providers:
+    if llm is None:
         raise KitError(Codes.LLM_UNAVAILABLE, "no LLM available and nothing generated")
 
     # --- ingest (thin check) ---
@@ -84,7 +94,7 @@ async def run_case(
     async def do_extract() -> dict:
         prompt = EXTRACT_PROMPT.replace("{jd}", truncate("DATA:\n" + jd, 12000))
         try:
-            raw, _prov = await llm_generate(providers, prompt, EXTRACT_SCHEMA)
+            raw, _prov = await llm_generate(llm, prompt, EXTRACT_SCHEMA)
             return raw
         except Exception as exc:
             raise KitError(Codes.LLM_UNAVAILABLE, f"extraction failed: {exc}") from exc
@@ -98,11 +108,10 @@ async def run_case(
                 company_url, budget=deps.get("max_pages", 12), depth=deps.get("depth", 2),
                 allow_private=allow_private, client=http_client, research_log=research_log,
             )
-            # injection filter: drop pages that address an AI
+            # injection filter: drop pages that address an AI / issue instructions
             kept = []
             for p in pages:
-                chk = await jev.is_injection(p.get("text", ""))
-                if chk.get("verdict"):
+                if _looks_like_injection(p.get("text", "")):
                     research_log["fetches"].append({"url": p.get("final_url"), "reason": "injection-flagged"})
                     continue
                 kept.append(p)
@@ -132,7 +141,6 @@ async def run_case(
     page_texts = [p.get("text", "") for p in pages]
     flags = signal_step.analyze(page_texts + [str((discussion.get("threads") or []))])
     research_log["hiring_signals"] = flags
-    research_log["hev_fallback"] = (not jev.enabled, "jev disabled; heuristics used" if not jev.enabled else "")
     emit("analyze_hiring_signals", "done")
 
     # --- brief (deterministic template when nothing retrieved) ---
@@ -153,7 +161,7 @@ async def run_case(
             + truncate("\n\n".join(page_texts), 12000)
         )
         try:
-            raw_brief, _ = await llm_generate(providers, prompt, BRIEF_SCHEMA)
+            raw_brief, _ = await llm_generate(llm, prompt, BRIEF_SCHEMA)
             brief = {
                 "summary": str(raw_brief.get("summary", "")),
                 "what_they_do": str(raw_brief.get("what_they_do", "")),
@@ -183,7 +191,7 @@ async def run_case(
             continue  # skip empty categories, never pad
         prompt = question_prompt(category, reqs, {k: v == "true" for k, v in flags.items()}, [])
         try:
-            raw_q, _ = await llm_generate(providers, prompt, QUESTION_SCHEMA)
+            raw_q, _ = await llm_generate(llm, prompt, QUESTION_SCHEMA)
         except Exception as exc:
             warnings.append(f"question generation failed for {category}: {exc}")
             continue
@@ -209,27 +217,9 @@ async def run_case(
             })
     emit("generate_questions", "done")
 
-    # --- coverage loop (code decides; Jev only removes dubious links) ---
+    # --- coverage loop (decided by code: set arithmetic on requirement ids) ---
     passes = 1
     gaps = compute_gaps(req_ids_all, questions)
-    # Jev verification: drop links below threshold
-    if jev.enabled and questions:
-        verified: dict[str, list[str]] = {}
-        for q in questions:
-            keep = []
-            for rid in q["requirement_ids"]:
-                chk = await jev.verify_link(q["prompt"], rid)
-                if chk.get("confidence", 0) >= 0.7 and not chk.get("verdict", True):
-                    continue
-                keep.append(rid)
-            if keep:
-                verified[q["id"]] = keep
-        gaps = compute_gaps(req_ids_all, questions, verified)
-        # apply removals
-        for q in questions:
-            if q["id"] in verified:
-                q["requirement_ids"] = verified[q["id"]]
-        questions = [q for q in questions if q["requirement_ids"]]
     prev_gaps: set[str] | None = None
     while gaps and passes < MAX_PASSES:
         # last pass targets must only
@@ -251,7 +241,7 @@ async def run_case(
                 continue
             prompt = question_prompt(category, reqs, {k: v == "true" for k, v in flags.items()}, existing_prompts)
             try:
-                raw_q, _ = await llm_generate(providers, prompt, QUESTION_SCHEMA)
+                raw_q, _ = await llm_generate(llm, prompt, QUESTION_SCHEMA)
             except Exception:
                 continue
             for item in (raw_q.get("questions") or []):
@@ -287,7 +277,7 @@ async def run_case(
     tech_q = [q for q in questions if q.get("category") == "technical"]
     try:
         ctx = truncate(str([{"id": r["id"], "text": r["text"]} for r in requirements if r["id"] in must_ids]) + str([q["prompt"] for q in tech_q]), 6000)
-        raw_f, _ = await llm_generate(providers, FLASHCARD_PROMPT.replace("{context}", ctx), FLASHCARD_SCHEMA)
+        raw_f, _ = await llm_generate(llm, FLASHCARD_PROMPT.replace("{context}", ctx), FLASHCARD_SCHEMA)
         flashcards = []
         for i, c in enumerate((raw_f.get("flashcards") or [])[:MAX_FLASHCARDS], 1):
             if not c.get("front") or not c.get("back"):

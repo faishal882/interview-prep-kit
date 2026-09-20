@@ -1,4 +1,4 @@
-"""Heuristic kind/priority classifier (fallback when Jev unavailable)."""
+"""Heuristic kind/priority classifier (the single classifier used by the pipeline)."""
 from __future__ import annotations
 
 import re
