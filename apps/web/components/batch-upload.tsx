@@ -60,7 +60,7 @@ export function BatchUpload() {
   return (
     <div>
       <LiveRegion message={`Batch upload: ${status}. ${message}`} />
-      <label htmlFor="batch-file" className="text-sm font-medium">
+      <label htmlFor="batch-file" className="field-label">
         JSON file (up to 10 Cases: id, jd, company_url, days)
       </label>
       <input
@@ -68,46 +68,48 @@ export function BatchUpload() {
         type="file"
         accept="application/json,.json"
         onChange={(e) => void onFile(e.target.files?.[0])}
-        className="mt-1 block text-sm"
+        className="inset-input"
       />
       {preview ? (
-        <p className="mt-2 text-sm" role="status">
-          Preview: {preview.length} {preview.length === 1 ? "entry" : "entries"} ready to submit.
+        <p style={{ marginTop: 12 }} role="status">
+          <span className="pill">{preview.length} {preview.length === 1 ? "entry" : "entries"} ready</span>
         </p>
       ) : null}
       {status === "error" ? (
-        <p role="alert" className="mt-2 text-sm text-red-700">
+        <p role="alert" className="field-error">
           {message}
         </p>
       ) : null}
-      <button
-        onClick={() => void submit()}
-        disabled={!preview || status === "uploading"}
-        className="mt-3 rounded bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
-        {status === "uploading" ? "Uploading…" : "Submit batch"}
-      </button>
+      <div style={{ marginTop: 16 }}>
+        <button
+          onClick={() => void submit()}
+          disabled={!preview || status === "uploading"}
+          className="button"
+        >
+          {status === "uploading" ? "Uploading…" : "Submit batch"}
+        </button>
+      </div>
       {status === "report" && report ? (
-        <div className="mt-4 space-y-3" role="status">
-          <h2 className="font-medium">Report</h2>
-          <section aria-label="Accepted">
-            <h3 className="text-sm font-medium">Accepted ({report.accepted.length})</h3>
-            <ul className="mt-1 space-y-1 text-sm">
+        <div className="neu-card-flat" style={{ marginTop: 20 }} role="status">
+          <span className="eyebrow">Report</span>
+          <section aria-label="Accepted" style={{ marginTop: 12 }}>
+            <h3 className="kit-display" style={{ fontSize: 16 }}>Accepted ({report.accepted.length})</h3>
+            <ul className="ruled-list" style={{ marginTop: 8 }}>
               {report.accepted.map((a) => (
-                <li key={a.id}>
+                <li key={a.id} style={{ padding: "10px 4px" }}>
                   {a.id} →{" "}
-                  <Link href={`/kits/${a.kit_id}`} className="underline">
+                  <Link href={`/kits/${a.kit_id}`} style={{ color: "var(--primary)", fontWeight: 600 }}>
                     Open Kit
                   </Link>
                 </li>
               ))}
             </ul>
           </section>
-          <section aria-label="Rejected">
-            <h3 className="text-sm font-medium">Rejected ({report.rejected.length})</h3>
-            <ul className="mt-1 space-y-1 text-sm">
+          <section aria-label="Rejected" style={{ marginTop: 12 }}>
+            <h3 className="kit-display" style={{ fontSize: 16 }}>Rejected ({report.rejected.length})</h3>
+            <ul className="ruled-list" style={{ marginTop: 8 }}>
               {report.rejected.map((r) => (
-                <li key={r.id}>
+                <li key={r.id} style={{ padding: "10px 4px" }}>
                   {r.id}: {r.reason}
                 </li>
               ))}

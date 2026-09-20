@@ -45,59 +45,63 @@ export function CreateKitForm() {
 
   return (
     <div>
-      <form onSubmit={handleSubmit((v) => void submit(v))} noValidate className="space-y-3">
+      <form onSubmit={handleSubmit((v) => void submit(v))} noValidate style={{ display: "grid", gap: 16 }}>
         <div>
-          <label htmlFor="jd" className="text-sm font-medium">
+          <label htmlFor="jd" className="field-label">
             Job description
           </label>
-          <textarea id="jd" rows={8} {...field("jd")} className="mt-1 w-full rounded border px-2 py-1.5" />
+          <textarea id="jd" rows={8} {...field("jd")} className="inset-textarea" />
           {errors.jd ? (
-            <p role="alert" className="text-sm text-red-700">
+            <p role="alert" className="field-error">
               {errors.jd.message}
             </p>
           ) : null}
         </div>
-        <div>
-          <label htmlFor="company_url" className="text-sm font-medium">
-            Company website
-          </label>
-          <input id="company_url" inputMode="url" placeholder="https://example.com" {...field("company_url")} className="mt-1 w-full rounded border px-2 py-1.5" />
-          {errors.company_url ? (
-            <p role="alert" className="text-sm text-red-700">
-              {errors.company_url.message}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <label htmlFor="days" className="text-sm font-medium">
-            Days
-          </label>
-          <input id="days" type="number" min={1} max={60} {...field("days")} className="mt-1 w-32 rounded border px-2 py-1.5" />
-          {errors.days ? (
-            <p role="alert" className="text-sm text-red-700">
-              {errors.days.message}
-            </p>
-          ) : null}
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          <div>
+            <label htmlFor="company_url" className="field-label">
+              Company website
+            </label>
+            <input id="company_url" inputMode="url" placeholder="https://example.com" {...field("company_url")} className="inset-input" />
+            {errors.company_url ? (
+              <p role="alert" className="field-error">
+                {errors.company_url.message}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label htmlFor="days" className="field-label">
+              Days
+            </label>
+            <input id="days" type="number" min={1} max={60} {...field("days")} className="inset-input" style={{ maxWidth: 160 }} />
+            {errors.days ? (
+              <p role="alert" className="field-error">
+                {errors.days.message}
+              </p>
+            ) : null}
+          </div>
         </div>
         {serverError ? (
-          <p role="alert" className="text-sm text-red-700">
+          <p role="alert" className="field-error">
             {serverError}
           </p>
         ) : null}
-        <button type="submit" disabled={isSubmitting} className="rounded bg-neutral-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black">
-          Create Kit
-        </button>
+        <div>
+          <button type="submit" disabled={isSubmitting} className="button">
+            Create Kit
+          </button>
+        </div>
       </form>
       {duplicate ? (
-        <div role="alert" className="mt-4 rounded border border-amber-300 bg-amber-50 p-4 dark:bg-amber-950">
-          <p className="text-sm">You already have this Kit.</p>
-          <div className="mt-2 flex gap-2">
-            <button onClick={() => router.push(`/kits/${duplicate.kit_id}`)} className="rounded border px-3 py-1.5 text-sm underline">
+        <div role="alert" className="banner banner-warn" style={{ marginTop: 20 }}>
+          <p>You already have this Kit.</p>
+          <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
+            <button onClick={() => router.push(`/kits/${duplicate.kit_id}`)} className="button button-small">
               Open existing
             </button>
             <button
               onClick={() => pending && void submit(pending, true)}
-              className="rounded border px-3 py-1.5 text-sm"
+              className="button button-secondary button-small"
             >
               Create anyway
             </button>

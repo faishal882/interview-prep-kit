@@ -39,72 +39,79 @@ export function EditableQuestions({ kitId }: { kitId: string }) {
   };
   return (
     <EditingProvider kitId={kitId}>
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Questions</h1>
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Questions</span>
+        </div>
         <GapBanner uncovered={uncovered} kitId={kitId} />
-        {data?.schedule_stale ? <StaleBanner /> : null}
-        <button onClick={() => setAdding((a) => !a)} className="rounded border px-2 py-1 text-sm">
-          {adding ? "Cancel" : "Add a Question"}
-        </button>
+        {data?.schedule_stale ? <div style={{ marginTop: 12 }}><StaleBanner /></div> : null}
+        <div style={{ marginTop: 16 }}>
+          <button onClick={() => setAdding((a) => !a)} className="button button-secondary button-small">
+            {adding ? "Cancel" : "Add a Question"}
+          </button>
+        </div>
         {adding ? (
-          <div className="rounded border p-3 text-sm">
-            <label htmlFor="new-q" className="font-medium">
+          <div className="neu-card-flat" style={{ marginTop: 12 }}>
+            <label htmlFor="new-q" className="field-label">
               Question
             </label>
-            <input id="new-q" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="mt-1 w-full rounded border px-2 py-1" />
-            <label htmlFor="new-q-cat" className="mt-2 block font-medium">
+            <input id="new-q" value={prompt} onChange={(e) => setPrompt(e.target.value)} className="inset-input" />
+            <label htmlFor="new-q-cat" className="field-label" style={{ marginTop: 12 }}>
               Category
             </label>
-            <select id="new-q-cat" value={category} onChange={(e) => setCategory(e.target.value as Category)} className="mt-1 rounded border px-2 py-1">
+            <select id="new-q-cat" value={category} onChange={(e) => setCategory(e.target.value as Category)} className="inset-select">
               {cats.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
-            <button onClick={() => void add()} disabled={!prompt.trim()} className="mt-2 rounded bg-neutral-900 px-3 py-1 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+            <button onClick={() => void add()} disabled={!prompt.trim()} className="button button-small" style={{ marginTop: 12 }}>
               Add
             </button>
           </div>
         ) : null}
-        {cats.map((c) => {
-          const list = questions.filter((q) => q.category === c);
-          return (
-            <details key={c} open className="rounded border p-3">
-              <summary className="cursor-pointer font-medium">
-                {c} ({list.length})
-              </summary>
-              <div className="mt-1">
-                <RegenCategoryButton kitId={kitId} category={c} />
-              </div>
-              {list.length === 0 ? (
-                <p className="mt-2 text-sm text-neutral-500">No Questions in this Category — no Requirements routed here, so nothing was padded.</p>
-              ) : (
-                <SortableCategory
-                  kitId={kitId}
-                  category={c}
-                  items={list}
-                  render={(q, siblings) => (
-                    <div className="rounded border p-2 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <OriginBadge meta={q._meta} />
-                        <MoveMenu kitId={kitId} question={q} siblings={siblings} />
-                        <span className="ml-auto flex gap-1">
-                          <PinToggle kitId={kitId} collection="questions" itemId={q.id} pinned={q._meta?.pinned} />
-                          <DeleteItemButton kitId={kitId} collection="questions" itemId={q.id} label={`Delete Question ${q.id}`} />
-                        </span>
+        <div style={{ marginTop: 8 }}>
+          {cats.map((c) => {
+            const list = questions.filter((q) => q.category === c);
+            return (
+              <details key={c} open className="disclosure">
+                <summary>
+                  {c} ({list.length})
+                  <span className="plus" aria-hidden="true">+</span>
+                </summary>
+                <div style={{ marginTop: 8 }}>
+                  <RegenCategoryButton kitId={kitId} category={c} />
+                </div>
+                {list.length === 0 ? (
+                  <p style={{ marginTop: 12, color: "var(--copy)", paddingRight: 42 }}>No Questions in this Category — no Requirements routed here, so nothing was padded.</p>
+                ) : (
+                  <SortableCategory
+                    kitId={kitId}
+                    category={c}
+                    items={list}
+                    render={(q, siblings) => (
+                      <div className="neu-card" style={{ padding: 18 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                          <OriginBadge meta={q._meta} />
+                          <MoveMenu kitId={kitId} question={q} siblings={siblings} />
+                          <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                            <PinToggle kitId={kitId} collection="questions" itemId={q.id} pinned={q._meta?.pinned} />
+                            <DeleteItemButton kitId={kitId} collection="questions" itemId={q.id} label={`Delete Question ${q.id}`} />
+                          </span>
+                        </div>
+                        <EditableField collection="questions" itemId={q.id} field="prompt" value={q.prompt} label="Prompt" multiline />
+                        <EditableField collection="questions" itemId={q.id} field="answer_outline" value={q.answer_outline} label="Answer outline" multiline />
+                        <CheckAnswer kitId={kitId} questionId={q.id} />
                       </div>
-                      <EditableField collection="questions" itemId={q.id} field="prompt" value={q.prompt} label="Prompt" multiline />
-                      <EditableField collection="questions" itemId={q.id} field="answer_outline" value={q.answer_outline} label="Answer outline" multiline />
-                      <CheckAnswer kitId={kitId} questionId={q.id} />
-                    </div>
-                  )}
-                />
-              )}
-            </details>
-          );
-        })}
+                    )}
+                  />
+                )}
+              </details>
+            );
+          })}
+        </div>
       </div>
     </EditingProvider>
   );
@@ -125,48 +132,52 @@ export function EditableRole({ kitId }: { kitId: string }) {
   };
   return (
     <EditingProvider kitId={kitId}>
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Role</h1>
-        <div className="flex gap-2 text-sm">
-          <input aria-label="New Requirement text" value={text} onChange={(e) => setText(e.target.value)} placeholder="New Requirement…" className="w-full rounded border px-2 py-1" />
-          <button onClick={() => void add()} disabled={!text.trim()} className="rounded border px-3 py-1 disabled:opacity-50">
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Role</span>
+        </div>
+        <div className="neu-card-flat" style={{ display: "flex", gap: 12 }}>
+          <input aria-label="New Requirement text" value={text} onChange={(e) => setText(e.target.value)} placeholder="New Requirement…" className="inset-input" />
+          <button onClick={() => void add()} disabled={!text.trim()} className="button button-small" style={{ flexShrink: 0 }}>
             Add
           </button>
         </div>
-        {reqs.length === 0 ? (
-          <EmptyState title="No Requirements" body="The generator found no interviewable claims in this job description." />
-        ) : (
-          <ul className="space-y-2">
-            {reqs.map((r) => {
-              const n = questions.filter((q) => q.requirement_ids.includes(r.id)).length;
-              const gap = uncovered.has(r.id) || n === 0;
-              return (
-                <li key={r.id} className="rounded border p-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{r.id}</span>
-                    <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs dark:bg-neutral-800">{r.kind}</span>
-                    <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs dark:bg-neutral-800">{r.priority}</span>
-                    <OriginBadge meta={r._meta} />
-                    {gap ? (
-                      <span role="status" className="rounded bg-red-100 px-1.5 py-0.5 text-xs dark:bg-red-900">
-                        Gap
+        <div style={{ marginTop: 16 }}>
+          {reqs.length === 0 ? (
+            <EmptyState title="No Requirements" body="The generator found no interviewable claims in this job description." />
+          ) : (
+            <ul className="ruled-list">
+              {reqs.map((r) => {
+                const n = questions.filter((q) => q.requirement_ids.includes(r.id)).length;
+                const gap = uncovered.has(r.id) || n === 0;
+                return (
+                  <li key={r.id}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 12, color: "var(--copy)" }}>{r.id}</span>
+                      <span className="pill pill-neutral">{r.kind}</span>
+                      <span className="pill pill-neutral">{r.priority}</span>
+                      <OriginBadge meta={r._meta} />
+                      {gap ? (
+                        <span role="status" className="pill pill-red">
+                          Gap
+                        </span>
+                      ) : (
+                        <span className="pill pill-teal">{n} Questions</span>
+                      )}
+                      {gap ? <GenerateForGapButton kitId={kitId} requirementId={r.id} /> : null}
+                      <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                        <PinToggle kitId={kitId} collection="requirements" itemId={r.id} pinned={r._meta?.pinned} />
+                        <DeleteItemButton kitId={kitId} collection="requirements" itemId={r.id} label={`Delete Requirement ${r.id}`} />
                       </span>
-                    ) : (
-                      <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs dark:bg-green-900">{n} Questions</span>
-                    )}
-                    {gap ? <GenerateForGapButton kitId={kitId} requirementId={r.id} /> : null}
-                    <span className="ml-auto flex gap-1">
-                      <PinToggle kitId={kitId} collection="requirements" itemId={r.id} pinned={r._meta?.pinned} />
-                      <DeleteItemButton kitId={kitId} collection="requirements" itemId={r.id} label={`Delete Requirement ${r.id}`} />
-                    </span>
-                  </div>
-                  <EditableField collection="requirements" itemId={r.id} field="text" value={r.text} label="Requirement" multiline />
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                    </div>
+                    <EditableField collection="requirements" itemId={r.id} field="text" value={r.text} label="Requirement" multiline />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </EditingProvider>
   );
@@ -186,41 +197,45 @@ export function EditableFlashcards({ kitId }: { kitId: string }) {
   };
   return (
     <EditingProvider kitId={kitId}>
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Flashcards</h1>
-        <div className="rounded border p-3 text-sm">
-          <label htmlFor="fc-front" className="font-medium">
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Flashcards</span>
+        </div>
+        <div className="neu-card-flat">
+          <label htmlFor="fc-front" className="field-label">
             Front
           </label>
-          <input id="fc-front" value={front} onChange={(e) => setFront(e.target.value)} className="mt-1 w-full rounded border px-2 py-1" />
-          <label htmlFor="fc-back" className="mt-2 block font-medium">
+          <input id="fc-front" value={front} onChange={(e) => setFront(e.target.value)} className="inset-input" />
+          <label htmlFor="fc-back" className="field-label" style={{ marginTop: 12 }}>
             Back
           </label>
-          <input id="fc-back" value={back} onChange={(e) => setBack(e.target.value)} className="mt-1 w-full rounded border px-2 py-1" />
-          <button onClick={() => void add()} disabled={!front.trim() || !back.trim()} className="mt-2 rounded border px-3 py-1 disabled:opacity-50">
+          <input id="fc-back" value={back} onChange={(e) => setBack(e.target.value)} className="inset-input" />
+          <button onClick={() => void add()} disabled={!front.trim() || !back.trim()} className="button button-small" style={{ marginTop: 12 }}>
             Add Flashcard
           </button>
         </div>
-        {cards.length === 0 ? (
-          <EmptyState title="No Flashcards yet" body="Flashcards are generated from must Requirements and technical Questions. Add some by hand or regenerate." />
-        ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
-            {cards.map((f) => (
-              <li key={f.id} className="rounded border p-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <OriginBadge meta={f._meta} />
-                  <span className="ml-auto flex gap-1">
-                    <PinToggle kitId={kitId} collection="flashcards" itemId={f.id} pinned={f._meta?.pinned} />
-                    <DeleteItemButton kitId={kitId} collection="flashcards" itemId={f.id} label={`Delete Flashcard ${f.id}`} />
-                  </span>
-                </div>
-                <EditableField collection="flashcards" itemId={f.id} field="front" value={f.front} label="Front" multiline />
-                <EditableField collection="flashcards" itemId={f.id} field="back" value={f.back} label="Back" multiline />
-              </li>
-            ))}
-          </ul>
-        )}
+        <div style={{ marginTop: 16 }}>
+          {cards.length === 0 ? (
+            <EmptyState title="No Flashcards yet" body="Flashcards are generated from must Requirements and technical Questions. Add some by hand or regenerate." />
+          ) : (
+            <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              {cards.map((f) => (
+                <li key={f.id} className="neu-card">
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <OriginBadge meta={f._meta} />
+                    <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                      <PinToggle kitId={kitId} collection="flashcards" itemId={f.id} pinned={f._meta?.pinned} />
+                      <DeleteItemButton kitId={kitId} collection="flashcards" itemId={f.id} label={`Delete Flashcard ${f.id}`} />
+                    </span>
+                  </div>
+                  <EditableField collection="flashcards" itemId={f.id} field="front" value={f.front} label="Front" multiline />
+                  <EditableField collection="flashcards" itemId={f.id} field="back" value={f.back} label="Back" multiline />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </EditingProvider>
   );
@@ -231,23 +246,30 @@ export function EditableSchedule({ kitId }: { kitId: string }) {
   const days = data?.kit?.schedule?.days ?? [];
   return (
     <EditingProvider kitId={kitId}>
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Schedule</h1>
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Schedule</span>
+        </div>
         {data?.schedule_stale ? <StaleBanner /> : null}
-        <RegenScheduleButton kitId={kitId} />
-        <ol className="space-y-2">
+        <div style={{ marginTop: 12 }}>
+          <RegenScheduleButton kitId={kitId} />
+        </div>
+        <ol className="ruled-list" style={{ listStyle: "none", marginTop: 8 }}>
           {days.map((d) => (
-            <li key={d.day} className="rounded border p-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Day {d.day}</span>
-                <span className="ml-auto text-xs text-neutral-500">{d.minutes} min</span>
+            <li key={d.day}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="proof-icon" aria-hidden="true" style={{ width: 36, height: 36, flexBasis: 36, fontSize: 15 }}>
+                  {d.day}
+                </span>
+                <span className="kit-display" style={{ fontWeight: 600 }}>Day {d.day}</span>
+                <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--copy)" }}>{d.minutes} min</span>
               </div>
               <EditableField collection="day" itemId={String(d.day)} field="focus" value={d.focus} label="Day focus" />
-              <p className="mt-1 text-xs text-neutral-500">Questions: {d.question_ids.join(", ") || "—"}</p>
-              <div className="mt-1 flex flex-wrap gap-1">
+              <p style={{ marginTop: 8, fontSize: 13, color: "var(--copy)" }}>Questions: {d.question_ids.join(", ") || "—"}</p>
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {d.question_ids.map((qid) => (
-                  <span key={qid} className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs">
+                  <span key={qid} className="pill pill-neutral">
                     {qid} <MoveToDayMenu kitId={kitId} questionId={qid} />
                   </span>
                 ))}
@@ -266,12 +288,12 @@ export function EditableBrief({ kitId }: { kitId: string }) {
   if (!brief) return null;
   return (
     <EditingProvider kitId={kitId}>
-      <section aria-label="Company brief" className="rounded border p-3">
-        <h2 className="font-medium">Company brief (editable)</h2>
+      <section aria-label="Company brief" className="neu-card-flat">
+        <h2 className="kit-display" style={{ fontSize: 17 }}>Company brief (editable)</h2>
         <EditableField collection="brief" itemId="brief" field="summary" value={brief.summary ?? ""} label="Summary" multiline />
         <EditableField collection="brief" itemId="brief" field="what_they_do" value={brief.what_they_do ?? ""} label="What they do" multiline />
         <EditableField collection="brief" itemId="brief" field="hiring_process" value={brief.hiring_process ?? ""} label="Hiring process" multiline />
-        <div className="mt-2">
+        <div style={{ marginTop: 12 }}>
           <BriefRegen kitId={kitId} />
         </div>
       </section>

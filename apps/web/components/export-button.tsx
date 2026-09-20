@@ -25,11 +25,11 @@ export function ExportButton({ kitId }: { kitId: string }) {
   };
   return (
     <span>
-      <button onClick={() => void download()} disabled={busy} className="rounded border px-2 py-1 text-sm">
+      <button onClick={() => void download()} disabled={busy} className="button button-secondary button-small">
         {busy ? "Exporting…" : "Download JSON"}
       </button>
       {error ? (
-        <span role="alert" className="ml-2 text-sm text-red-700">
+        <span role="alert" className="field-error" style={{ marginLeft: 8 }}>
           {error}
         </span>
       ) : null}
