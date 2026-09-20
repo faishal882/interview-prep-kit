@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/feedback";
 import { MoveMenu, MoveToDayMenu } from "@/components/move-menu";
 import { SortableCategory } from "@/components/sortable-questions";
 import { RegenCategoryButton, RegenScheduleButton, BriefRegen, GenerateForGapButton } from "@/components/regen";
+import { CheckAnswer } from "@/components/check-answer";
 import type { Category } from "@/lib/types";
 
 function useRefresh(kitId: string) {
@@ -96,6 +97,7 @@ export function EditableQuestions({ kitId }: { kitId: string }) {
                       </div>
                       <EditableField collection="questions" itemId={q.id} field="prompt" value={q.prompt} label="Prompt" multiline />
                       <EditableField collection="questions" itemId={q.id} field="answer_outline" value={q.answer_outline} label="Answer outline" multiline />
+                      <CheckAnswer kitId={kitId} questionId={q.id} />
                     </div>
                   )}
                 />
