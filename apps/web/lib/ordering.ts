@@ -1,32 +1,35 @@
-// Ordering mirrors backend fractional ordering (key_between) so reorder/move
-// can be computed locally, shown instantly, then confirmed by the server.
-const DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
-
-function midpoint(a: string, b: string): string {
+// Ordering mirrors the backend's fractional ordering (app/domain/ordering.py)
+// so a reorder or move can be computed locally and shown instantly, then
+// confirmed by the server.
+export function keyBetween(a: string | null | undefined, b: string | null | undefined): string {
+  if ((a ?? null) === null && (b ?? null) === null) return "a0";
+  if ((a ?? null) === null) return decrement(b!);
+  if ((b ?? null) === null) return increment(a!);
+  const aa = a!;
+  const bb = b!;
+  if (aa >= bb) return increment(aa);
   let i = 0;
-  let out = "";
-  while (true) {
-    const ca = i < a.length ? DIGITS.indexOf(a[i]) : 0;
-    const cb = i < b.length ? DIGITS.indexOf(b[i]) : DIGITS.length - 1;
-    if (cb - ca > 1) {
-      out += DIGITS[(ca + cb) >> 1];
-      return out;
-    }
-    out += a[i] ?? "0";
-    i += 1;
-    if (i > 64) return out + "n";
+  while (i < aa.length && i < bb.length && aa[i] === bb[i]) i += 1;
+  if (i < aa.length && i < bb.length) {
+    const ca = aa.charCodeAt(i);
+    const cb = bb.charCodeAt(i);
+    if (cb - ca > 1) return aa.slice(0, i) + String.fromCharCode((ca + cb) >> 1);
+    return aa.slice(0, i + 1) + "0";
   }
+  return aa + "0";
 }
 
-export function keyBetween(prev?: string | null, next?: string | null): string {
-  const p = prev ?? "";
-  const n = next ?? "";
-  if (!p && !n) return "a0";
-  if (!p) return "a0" === n ? "a0" : midpoint("", n.replace(/^a/, ""));
-  if (!n) return p + "n";
-  const pp = p.replace(/^a/, "");
-  const nn = n.replace(/^a/, "");
-  return "a" + midpoint(pp, nn);
+function increment(k: string): string {
+  const last = k[k.length - 1];
+  if (last === "z") return k + "0";
+  if (last === "9") return k.slice(0, -1) ? k.slice(0, -1) + "a" : "a";
+  return k.slice(0, -1) + String.fromCharCode(last.charCodeAt(0) + 1);
+}
+
+function decrement(k: string): string {
+  const first = k[0];
+  if (first > "0") return (String.fromCharCode(first.charCodeAt(0) - 1) + k.slice(1)) as string;
+  return "0" + k;
 }
 
 export interface OrderedItem {
