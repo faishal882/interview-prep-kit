@@ -3,7 +3,7 @@ import { use } from "react";
 import { useKit } from "@/lib/kit-cache";
 import { ErrorState, Skeleton } from "@/components/feedback";
 import { formatWithRef } from "@/lib/errors";
-import { ScheduleView } from "@/components/kit-views";
+import { EditableSchedule } from "@/components/editable-views";
 
 export default function SchedulePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -11,5 +11,5 @@ export default function SchedulePage({ params }: { params: Promise<{ id: string 
   if (isLoading) return <Skeleton label="Loading Schedule" />;
   if (isError)
     return <ErrorState message={formatWithRef(error)} referenceId={(error as { referenceId?: string })?.referenceId} onRetry={() => void refetch()} />;
-  return <ScheduleView kitId={id} />;
+  return <EditableSchedule kitId={id} />;
 }

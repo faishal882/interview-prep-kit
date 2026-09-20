@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { OverviewView } from "@/components/kit-views";
+import { EditableBrief } from "@/components/editable-views";
 
 export function KitNav({ kitId }: { kitId: string }) {
   const views = ["role", "questions", "flashcards", "schedule", "practice"];
@@ -22,5 +23,10 @@ export function KitNav({ kitId }: { kitId: string }) {
 }
 
 export function KitOverview({ kitId }: { kitId: string }) {
-  return <OverviewView kitId={kitId} />;
+  return (
+    <div className="space-y-4">
+      <OverviewView kitId={kitId} />
+      <EditableBrief kitId={kitId} />
+    </div>
+  );
 }

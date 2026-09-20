@@ -3,7 +3,7 @@ import { use } from "react";
 import { useKit } from "@/lib/kit-cache";
 import { ErrorState, Skeleton } from "@/components/feedback";
 import { formatWithRef } from "@/lib/errors";
-import { QuestionsView } from "@/components/kit-views";
+import { EditableQuestions } from "@/components/editable-views";
 
 export default function QuestionsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -11,5 +11,5 @@ export default function QuestionsPage({ params }: { params: Promise<{ id: string
   if (isLoading) return <Skeleton label="Loading Questions" />;
   if (isError)
     return <ErrorState message={formatWithRef(error)} referenceId={(error as { referenceId?: string })?.referenceId} onRetry={() => void refetch()} />;
-  return <QuestionsView kitId={id} />;
+  return <EditableQuestions kitId={id} />;
 }

@@ -3,7 +3,7 @@ import { use } from "react";
 import { useKit } from "@/lib/kit-cache";
 import { ErrorState, Skeleton } from "@/components/feedback";
 import { formatWithRef } from "@/lib/errors";
-import { FlashcardsView } from "@/components/kit-views";
+import { EditableFlashcards } from "@/components/editable-views";
 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -11,5 +11,5 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   if (isLoading) return <Skeleton label="Loading Flashcards" />;
   if (isError)
     return <ErrorState message={formatWithRef(error)} referenceId={(error as { referenceId?: string })?.referenceId} onRetry={() => void refetch()} />;
-  return <FlashcardsView kitId={id} />;
+  return <EditableFlashcards kitId={id} />;
 }
