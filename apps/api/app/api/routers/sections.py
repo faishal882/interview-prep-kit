@@ -64,6 +64,60 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
     raise KitError(Codes.NOT_FOUND, "unknown section")
 
 
+@router.post("/api/kits/{kit_id}/sections/brief/accept")
+async def accept_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
+    k = get_kit_or_404(kit_id, user["id"])
+    kit = k.get("kit")
+    if not kit:
+        raise KitError(Codes.NOT_FOUND, "kit not ready")
+    proposal = (k.get("proposals") or {}).get("brief")
+    if not proposal:
+        raise KitError(Codes.NOT_FOUND, "no proposal")
+    kit["company_brief"]["summary"] = proposal.get("summary", "")
+    kit.setdefault("_brief_meta", {"rev": 0})["rev"] += 1
+    k["proposals"].pop("brief", None)
+    return {"ok": True}
+
+
+@router.post("/api/kits/{kit_id}/sections/brief/reject")
+async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
+    k = get_kit_or_404(kit_id, user["id"])
+    if not k.get("kit"):
+        raise KitError(Codes.NOT_FOUND, "kit not ready")
+    (k.get("proposals") or {}).pop("brief", None)
+    return {"ok": True}
+
+
+@router.post("/api/kits/{kit_id}/requirements/{requirement_id}/generate")
+async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict = Depends(current_user)) -> dict:
+    """Targeted generation: Questions for exactly one Requirement, nothing else touched."""
+    from app.domain.item_meta import is_protected as _prot  # noqa: F401 (kept for clarity)
+    k = get_kit_or_404(kit_id, user["id"])
+    kit = k.get("kit")
+    if not kit:
+        raise KitError(Codes.NOT_FOUND, "kit not ready")
+    req = next((r for r in kit["role"]["requirements"] if r.get("id") == requirement_id), None)
+    if not req:
+        raise KitError(Codes.NOT_FOUND, "requirement not found")
+    kind = req.get("kind", "technical")
+    category = {"technical": "technical", "behavioural": "behavioural", "domain": "company-fit"}.get(kind, "technical")
+    existing_prompts = {q.get("prompt") for q in kit["questions"]}
+    prompt = f"Targeted {category} question for {requirement_id}: {req.get('text', '')[:80]}"
+    if prompt in existing_prompts:
+        prompt += " (follow-up)"
+    item = {"id": f"q-new-{uuid.uuid4().hex[:4]}", "requirement_ids": [requirement_id],
+            "category": category, "prompt": prompt,
+            "answer_outline": "Outline.", "difficulty": 2, "outline_points": [],
+            "_meta": {"origin": "generated", "edited": False, "pinned": False, "rev": 1, "order": "a9"}}
+    kit["questions"].append(item)
+    reqs_all = [r["id"] for r in kit["role"]["requirements"]]
+    kit.setdefault("coverage", {})["uncovered_requirement_ids"] = compute_gaps(reqs_all, kit["questions"])
+    job = new_job(kit_id)
+    job["status"] = "done"
+    DB.jobs[job["id"]] = job
+    return {"ok": True, "job_id": job["id"], "question_id": item["id"]}
+
+
 @router.patch("/api/kits/{kit_id}/schedule/days/{day}")
 async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Depends(current_user)) -> dict:
     """Edit a day's focus text (manual Schedule edits preserved until rebuild)."""
