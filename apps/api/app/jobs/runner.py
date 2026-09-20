@@ -19,7 +19,7 @@ def new_job(kit_id: str) -> dict:
         "id": uuid.uuid4().hex[:12],
         "kit_id": kit_id,
         "status": "pending",  # pending|running|done|failed
-        "steps": [{"name": s, "status": "pending", "message": ""} for s in STEPS],
+        "steps": [{"name": s, "status": "pending", "message": "", "started_at": None, "finished_at": None} for s in STEPS],
         "attempts": 0,
         "heartbeat": time.time(),
         "error": None,

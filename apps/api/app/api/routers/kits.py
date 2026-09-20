@@ -35,11 +35,17 @@ def _run_pipeline_sync(kit_id: str, job_id: str, case: dict, deps: dict) -> None
         return
 
     def on_event(ev: dict) -> None:
+        import datetime as _dt
+        now = _dt.datetime.utcnow().isoformat() + "Z"
         job["heartbeat"] = time.time()
         for s in job["steps"]:
             if s["name"] == ev.get("step"):
+                if s["status"] == "pending" and ev.get("status") in ("running", "done", "skipped", "failed"):
+                    s["started_at"] = s["started_at"] or now
                 s["status"] = ev.get("status", s["status"])
                 s["message"] = ev.get("message", "")
+                if s["status"] in ("done", "skipped", "failed"):
+                    s["finished_at"] = now
 
     async def _go() -> None:
         job["status"] = "running"
@@ -129,7 +135,27 @@ async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = 
 
 @router.get("/api/kits")
 async def list_kits(user: dict = Depends(current_user)) -> dict:
-    items = [{"id": k["id"], "status": k["status"]} for k in DB.kits.values() if k.get("user_id") == user["id"]]
+    from app.jobs.runner import active_job_for as _active
+    items = []
+    for k in DB.kits.values():
+        if k.get("user_id") != user["id"]:
+            continue
+        kit = k.get("kit") or {}
+        role = kit.get("role") or {}
+        reqs = role.get("requirements", [])
+        qs = kit.get("questions", [])
+        src = kit.get("source") or {}
+        inp = k.get("input") or {}
+        job = _active(k["id"], DB)
+        items.append({
+            "id": k["id"], "status": k["status"],
+            "company": src.get("company") or "",
+            "role": role.get("title") or "",
+            "days": (kit.get("schedule") or {}).get("days_available") or inp.get("days") or 0,
+            "requirement_count": len(reqs), "question_count": len(qs),
+            "updated_at": k.get("created_at"),
+            "job_id": job["id"] if job else None,
+        })
     return {"kits": items}
 
 
