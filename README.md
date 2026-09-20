@@ -14,10 +14,11 @@ editable interview preparation Kit (Appendix A of the brief).
 - **DB: MongoDB** document per Kit (collections `users`, `sessions`, `kits`, `jobs`,
   `practice_progress`, `fetch_cache`); in-memory repositories back the CLI and tests so the
   batch needs no database.
-- **LLM: Gemini Flash-tier primary, Groq fallback** behind one structured-generation
-  interface (`GEMINI_MODEL` / `GROQ_MODEL` env-pickable). Only `GEMINI_API_KEY` is required.
-- **Decisions: Jev (TypeSafe), optional** — every use has a fallback; without a key the
-  pipeline behaves as before. **No AI orchestration framework** (see ADR-0003).
+- **LLM: one Gemini Flash-tier model** behind the structured-generation interface
+  (`GEMINI_MODEL` env-pickable). Only `GEMINI_API_KEY` is required.
+- **Decisions: heuristics + the same LLM** — classification, link ranking and hiring-signal
+  flags are deterministic heuristics checked against the LLM's structured output; no second
+  provider, no extra keys. **No AI orchestration framework** (see ADR-0003).
 
 ## Setup and batch commands
 
@@ -35,10 +36,9 @@ via `apps/api/export_schema.py`).
 
 ## LLM provider and model
 
-Primary `GEMINI_MODEL` (default `gemini-2.0-flash`), fallback `GROQ_MODEL`
-(default `llama-3.3-70b-versatile`). Native JSON-schema mode → Pydantic validate → exactly
-**one** repair call → recorded step failure. Token-bucket limiter per provider, `Retry-After`
-honoured, exponential backoff with jitter (max 4 attempts), then failover. Page/JD text is
+Single `GEMINI_MODEL` (default `gemini-2.0-flash`). Native JSON-schema mode → Pydantic validate → exactly
+**one** repair call → recorded step failure. Backoff with jitter honouring `Retry-After`
+(max 4 attempts), then a recorded step failure — one quota to reason about. Page/JD text is
 truncated to a per-prompt token budget.
 
 ## Architecture
@@ -46,7 +46,7 @@ truncated to a per-prompt token budget.
 `pipeline.run(case, deps, on_event) -> Kit` is pure orchestration — no Mongo, no FastAPI.
 The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 `coverage` / `validation` / `practice` (pure, import nothing) → `pipeline` (depends on
-`LLMProvider` / `Fetcher` / `JevClient` interfaces) → `retrieval` / `llm` / `jev`
+`LLMProvider` / `Fetcher` interfaces) → `retrieval` / `llm`
 (infrastructure) → `api` (thin) → `jobs` / `persistence`. Full diagram: `docs/ARCHITECTURE.md`.
 
 ## Retrieval approach and sources
@@ -54,8 +54,8 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 - **Company site:** priority-queue crawl from the company URL (budget 12 pages, depth ≤ 2,
   ≤ 3 concurrent, ≤ 1 req/s per host, `Crawl-delay` honoured). Same registrable domain plus
   an ATS allowlist (greenhouse, lever, ashby, workable) one hop; relative links followed;
-  static HTML only. No fixed path list — a heuristic link ranker (Jev scorer when keyed)
-  finds hiring pages wherever they are buried.
+  static HTML only. No fixed path list — a heuristic link ranker finds hiring pages
+  wherever they are buried.
 - **Public discussion:** Hacker News via the Algolia API (keyless) + optional `SEARCH_API_KEY`;
   skipped with reason when the company URL is private.
 - **Sources:** the company's own site; Hacker News; optional search API. Glassdoor/LinkedIn
@@ -98,8 +98,7 @@ explanatory focus. Overload warning above 180 min/day average. Property-tested.
 ## Second pass (coverage loop)
 
 Coverage is set arithmetic in code: `gaps = requirements − ⋃ question.requirement_ids`.
-Jev only *removes* dubious links (Noul "question tests requirement" < threshold). Up to
-**3 Passes**: initial + up to 2 gap-fill rounds generating only for Gap ids with existing
+Up to **3 Passes**: initial + up to 2 gap-fill rounds generating only for Gap ids with existing
 prompts as an exclusion list; the last round targets `must` Gaps only. Stops on no gaps,
 the Question cap, or no progress (identical Gap set twice). Remainder ships honestly in
 `uncovered_requirement_ids`. Why 3: the first pass covers the bulk, the second targets the
@@ -109,16 +108,16 @@ better spent elsewhere.
 ## Creative feature: practice answer check
 
 `POST kits/{id}/practice/check` — the candidate types an answer; each `outline_points[i]`
-is judged covered/missing (one Jev Noul per point in parallel when keyed; literal word-overlap
-fallback otherwise). Solves "I practised but can't tell if my answer was any good" with zero
-extra LLM tokens. UI states its limits: literal reading, coverage check not quality judgment.
+is judged covered/missing by literal word-overlap. Solves "I practised but can't tell if
+my answer was any good" with zero extra LLM tokens. UI states its limits: literal reading,
+coverage check not quality judgment.
 
 ## Edge cases
 
 Invalid/404/timeout company → `ok` + honest brief + research-log entry. No hiring page →
 recorded, generic mix. Two-line JD → `thin_jd` flag, small Kit, warning, nothing invented.
 No discussion → "nothing found" recorded, brief says so. Invalid model JSON → one repair,
-then step failure. Rate limits → backoff + fallback. Duplicate submit → existing Kit
+then step failure. Rate limits → backoff with jitter, then recorded step failure. Duplicate submit → existing Kit
 (`force_new` overrides; failed Kits retried in place). 1-day / 60-day → always exactly N days.
 
 ## Key decisions, trade-offs, limitations
@@ -126,8 +125,7 @@ then step failure. Rate limits → backoff + fallback. Duplicate submit → exis
 - Single API instance assumed (in-process worker; stale jobs requeued once, then retryable).
 - `failed` batch status reserved for no-valid-Kit cases (`INVALID_INPUT`, `LLM_UNAVAILABLE`,
   `KIT_INVALID`, `TIMEOUT`, `MISSING_CREDENTIALS`); unreachable company is `ok`.
-- Jev free-tier terms unverified → optional with fallbacks everywhere. Free-tier LLM limits
-  volatile → limiter + fallback; verify at build time.
+- Single-provider LLM limits are volatile → backoff + limiter; verify at build time.
 - No headless browser (JS-only pages are a documented gap). No DNS-rebinding defence beyond
   redirect re-validation. CloudFront→EC2 hop and secret manager out of scope.
 - Appendix B's example shows unreachable company as failure; this build records it as `ok`

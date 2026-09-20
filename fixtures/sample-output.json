@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "generated_at": "2026-09-20T15:43:30.966838+00:00",
+  "generated_at": "2026-09-20T17:01:34.317215+00:00",
   "kits": [
     {
       "id": "case-01",
@@ -12,7 +12,7 @@
           "role": "Senior Backend Engineer",
           "location": "",
           "jd_chars": 248,
-          "researched_at": "2026-09-20T15:43:29.385682+00:00",
+          "researched_at": "2026-09-20T17:01:32.724478+00:00",
           "pages_used": []
         },
         "company_brief": {
@@ -89,10 +89,6 @@
             "has_coding_round": "false",
             "has_behavioural_round": "false"
           },
-          "hev_fallback": [
-            true,
-            "jev disabled; heuristics used"
-          ],
           "pages_used": []
         },
         "warnings": [
@@ -111,7 +107,7 @@
           "role": "Frontend Developer",
           "location": "",
           "jd_chars": 97,
-          "researched_at": "2026-09-20T15:43:29.385896+00:00",
+          "researched_at": "2026-09-20T17:01:32.724299+00:00",
           "pages_used": []
         },
         "company_brief": {
@@ -176,10 +172,6 @@
             "has_coding_round": "false",
             "has_behavioural_round": "false"
           },
-          "hev_fallback": [
-            true,
-            "jev disabled; heuristics used"
-          ],
           "pages_used": []
         },
         "warnings": [
@@ -198,7 +190,7 @@
           "role": "",
           "location": "",
           "jd_chars": 2,
-          "researched_at": "2026-09-20T15:43:30.966538+00:00",
+          "researched_at": "2026-09-20T17:01:34.316885+00:00",
           "pages_used": []
         },
         "company_brief": {
@@ -251,10 +243,6 @@
             "has_coding_round": "false",
             "has_behavioural_round": "false"
           },
-          "hev_fallback": [
-            true,
-            "jev disabled; heuristics used"
-          ],
           "pages_used": []
         },
         "warnings": [
@@ -273,7 +261,7 @@
           "role": "Backend Engineer",
           "location": "",
           "jd_chars": 101,
-          "researched_at": "2026-09-20T15:43:30.966402+00:00",
+          "researched_at": "2026-09-20T17:01:34.316988+00:00",
           "pages_used": []
         },
         "company_brief": {
@@ -362,10 +350,6 @@
             "has_coding_round": "false",
             "has_behavioural_round": "false"
           },
-          "hev_fallback": [
-            true,
-            "jev disabled; heuristics used"
-          ],
           "pages_used": []
         },
         "warnings": [
@@ -384,7 +368,7 @@
           "role": "Data Engineer",
           "location": "",
           "jd_chars": 85,
-          "researched_at": "2026-09-20T15:43:30.966810+00:00",
+          "researched_at": "2026-09-20T17:01:34.317173+00:00",
           "pages_used": []
         },
         "company_brief": {
@@ -443,10 +427,6 @@
             "has_coding_round": "false",
             "has_behavioural_round": "false"
           },
-          "hev_fallback": [
-            true,
-            "jev disabled; heuristics used"
-          ],
           "pages_used": []
         },
         "warnings": [
