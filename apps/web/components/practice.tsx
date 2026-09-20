@@ -72,9 +72,11 @@ export function PracticeView({ kitId }: { kitId: string }) {
 
   if (cards.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Practice</h1>
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Practice</span>
+        </div>
         <EmptyState title="Nothing to practise yet" body="Add Flashcards or regenerate the Kit, then start a Drill." />
       </div>
     );
@@ -82,20 +84,26 @@ export function PracticeView({ kitId }: { kitId: string }) {
 
   if (!drill) {
     return (
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Practice</h1>
+        <div className="section-head" style={{ marginBottom: 16 }}>
+          <span className="eyebrow">Practice</span>
+        </div>
         <LiveRegion message={live} />
         {summary ? (
-          <p className="text-sm" role="status">
-            Covered {summary.covered} of {summary.total} Flashcards.
+          <p role="status" style={{ marginBottom: 12 }}>
+            <span className="pill pill-teal">Covered {summary.covered} of {summary.total} Flashcards</span>
           </p>
         ) : null}
-        <button onClick={() => begin(queue ?? cards.map((c) => c.id))} className="rounded bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-black">
+        <button onClick={() => begin(queue ?? cards.map((c) => c.id))} className="button">
           Start Drill (10 cards, least sure first)
         </button>
-        <CoveragePanel kitId={kitId} />
-        <WeakSpotsReport kitId={kitId} />
+        <div style={{ marginTop: 20 }}>
+          <CoveragePanel kitId={kitId} />
+        </div>
+        <div style={{ marginTop: 16 }}>
+          <WeakSpotsReport kitId={kitId} />
+        </div>
       </div>
     );
   }
@@ -103,20 +111,20 @@ export function PracticeView({ kitId }: { kitId: string }) {
   if (isFinished(drill)) {
     const weak = weakCardIds(drill);
     return (
-      <div className="space-y-4">
+      <div className="section">
         <KitNav kitId={kitId} />
-        <h1 className="text-xl font-semibold">Drill summary</h1>
+        <span className="eyebrow">Drill summary</span>
         <LiveRegion message={live} />
-        <p className="text-sm" role="status">
+        <p role="status" style={{ marginTop: 12 }}>
           Rated {drill.ratings.length} cards. {weak.length} weak.
         </p>
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
           {weak.length > 0 ? (
-            <button onClick={() => begin(weak)} className="rounded border px-3 py-1.5 text-sm">
+            <button onClick={() => begin(weak)} className="button">
               Drill weak cards again
             </button>
           ) : null}
-          <button onClick={() => begin(queue ?? cards.map((c) => c.id))} className="rounded border px-3 py-1.5 text-sm">
+          <button onClick={() => begin(queue ?? cards.map((c) => c.id))} className="button button-secondary">
             New Drill
           </button>
         </div>
@@ -126,20 +134,20 @@ export function PracticeView({ kitId }: { kitId: string }) {
 
   const cur = drill.cards[drill.position];
   return (
-    <div className="space-y-4">
+    <div className="section">
       <KitNav kitId={kitId} />
-      <h1 className="text-xl font-semibold">Drill</h1>
+      <span className="eyebrow">Drill</span>
       <LiveRegion message={live} />
-      <p className="text-sm" role="status" aria-label={`Card ${drill.position + 1} of ${drill.cards.length}`}>
-        Card {drill.position + 1} of {drill.cards.length}
+      <p role="status" aria-label={`Card ${drill.position + 1} of ${drill.cards.length}`} style={{ marginTop: 12 }}>
+        <span className="pill">Card {drill.position + 1} of {drill.cards.length}</span>
       </p>
-      <div className="rounded border p-6" tabIndex={0} aria-label="Flashcard">
-        <p className="text-lg font-medium">{cur.front}</p>
-        {drill.revealed ? <p className="mt-3">{cur.back}</p> : <p className="mt-3 text-sm text-neutral-500">Press Space to reveal.</p>}
+      <div className="drill-frame" style={{ marginTop: 16 }} tabIndex={0} aria-label="Flashcard">
+        <p className="kit-display" style={{ fontSize: 22 }}>{cur.front}</p>
+        {drill.revealed ? <div className="drill-answer">{cur.back}</div> : <p style={{ marginTop: 16, color: "var(--copy)" }}>Press Space to reveal.</p>}
       </div>
-      <div className="flex gap-2">
+      <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
         {!drill.revealed ? (
-          <button onClick={() => setDrill(reveal(drill))} className="rounded border px-3 py-1.5 text-sm">
+          <button onClick={() => setDrill(reveal(drill))} className="button">
             Reveal (Space)
           </button>
         ) : (
@@ -150,18 +158,20 @@ export function PracticeView({ kitId }: { kitId: string }) {
                 record(cur.id, c);
                 setDrill(rate(drill, c));
               }}
-              className="rounded border px-3 py-1.5 text-sm"
+              className="button button-secondary"
               aria-label={`Rate Confidence ${c}`}
             >
               {c}
             </button>
           ))
         )}
-        <button onClick={() => setDrill(undoLast(drill))} disabled={drill.ratings.length === 0} className="rounded border px-3 py-1.5 text-sm disabled:opacity-40">
+        <button onClick={() => setDrill(undoLast(drill))} disabled={drill.ratings.length === 0} className="button button-secondary">
           Undo (Backspace)
         </button>
       </div>
-      <CoveragePanel kitId={kitId} />
+      <div style={{ marginTop: 20 }}>
+        <CoveragePanel kitId={kitId} />
+      </div>
     </div>
   );
 }
@@ -172,14 +182,14 @@ export function CoveragePanel({ kitId }: { kitId: string }) {
   const questions = data?.kit?.questions ?? [];
   const cards = data?.kit?.flashcards ?? [];
   return (
-    <section aria-label="Coverage" className="rounded border p-3 text-sm">
-      <h2 className="font-medium">Coverage</h2>
-      <ul className="mt-1 space-y-1">
+    <section aria-label="Coverage" className="neu-card-flat">
+      <h2 className="kit-display" style={{ fontSize: 16 }}>Coverage</h2>
+      <ul className="ruled-list" style={{ marginTop: 8 }}>
         {reqs.map((r) => {
           const nq = questions.filter((q) => q.requirement_ids.includes(r.id)).length;
           const nf = cards.filter((f) => (f.requirement_ids ?? []).includes(r.id)).length;
           return (
-            <li key={r.id}>
+            <li key={r.id} style={{ padding: "10px 4px" }}>
               {r.id}: {nq} Questions, {nf} Flashcards
             </li>
           );

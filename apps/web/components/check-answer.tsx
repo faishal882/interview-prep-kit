@@ -24,31 +24,31 @@ export function CheckAnswer({ kitId, questionId }: { kitId: string; questionId: 
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="mt-1 rounded border px-2 py-0.5 text-xs no-print">
+      <button onClick={() => setOpen(true)} className="button button-secondary button-small no-print" style={{ marginTop: 8 }}>
         Self-check my answer
       </button>
     );
   }
   return (
-    <div className="mt-2 rounded border p-2 no-print">
-      <p className="text-xs font-medium">Self-check (keyword match only)</p>
+    <div className="neu-card-flat no-print" style={{ marginTop: 8 }}>
+      <span className="eyebrow">Self-check (keyword match only)</span>
       <label htmlFor={`answer-${questionId}`} className="sr-only">
         Type your answer
       </label>
-      <textarea id={`answer-${questionId}`} value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder="Type your answer…" className="mt-1 w-full rounded border px-2 py-1 text-sm" />
-      <button onClick={() => void check()} disabled={busy || !answer.trim()} className="mt-1 rounded border px-2 py-0.5 text-xs disabled:opacity-50">
+      <textarea id={`answer-${questionId}`} value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder="Type your answer…" className="inset-textarea" style={{ marginTop: 8 }} />
+      <button onClick={() => void check()} disabled={busy || !answer.trim()} className="button button-small" style={{ marginTop: 8 }}>
         {busy ? "Checking…" : "Check coverage"}
       </button>
       {results ? (
-        <ul className="mt-1 space-y-1 text-xs">
+        <ul className="ruled-list" style={{ marginTop: 8 }}>
           {results.map((r, i) => (
-            <li key={i}>
+            <li key={i} style={{ padding: "8px 4px", fontSize: 14 }}>
               {r.covered ? "✓" : "✗"} {r.point}
             </li>
           ))}
         </ul>
       ) : null}
-      {limits ? <p className="mt-1 text-xs text-neutral-500">{limits}</p> : null}
+      {limits ? <p style={{ marginTop: 8, fontSize: 13, color: "var(--copy)" }}>{limits}</p> : null}
     </div>
   );
 }

@@ -16,18 +16,19 @@ export default function PrintPage({ params }: { params: Promise<{ id: string }> 
   const uncovered = new Set(kit?.coverage?.uncovered_requirement_ids ?? []);
   const days = kit?.schedule?.days ?? [];
   return (
-    <div className="space-y-4 text-black">
-      <button onClick={() => window.print()} className="no-print rounded border px-3 py-1.5 text-sm">
+    <div className="section" style={{ color: "var(--ink)" }}>
+      <button onClick={() => window.print()} className="button button-secondary no-print">
         Print / save
       </button>
-      <h1 className="text-xl font-bold">Interview prep — one page</h1>
-      <section aria-label="Brief">
-        <h2 className="font-semibold">Brief</h2>
-        <p className="text-sm">{kit?.company_brief?.summary || "—"}</p>
+      <span className="eyebrow no-print" style={{ marginLeft: 12 }}>One page</span>
+      <h1 className="kit-display" style={{ fontSize: "clamp(28px, 3vw, 40px)", marginTop: 16 }}>Interview prep — one page</h1>
+      <section aria-label="Brief" className="neu-card" style={{ marginTop: 20 }}>
+        <h2 className="kit-display" style={{ fontSize: 17 }}>Brief</h2>
+        <p style={{ marginTop: 8 }}>{kit?.company_brief?.summary || "—"}</p>
       </section>
-      <section aria-label="Requirements">
-        <h2 className="font-semibold">Requirements and weak spots</h2>
-        <ul className="list-disc pl-5 text-sm">
+      <section aria-label="Requirements" className="neu-card" style={{ marginTop: 16 }}>
+        <h2 className="kit-display" style={{ fontSize: 17 }}>Requirements and weak spots</h2>
+        <ul style={{ paddingLeft: 20, marginTop: 8 }}>
           {reqs.map((r) => (
             <li key={r.id}>
               {r.text} [{r.priority}]{uncovered.has(r.id) ? " — Gap: no Question" : ""}
@@ -35,9 +36,9 @@ export default function PrintPage({ params }: { params: Promise<{ id: string }> 
           ))}
         </ul>
       </section>
-      <section aria-label="Schedule">
-        <h2 className="font-semibold">Schedule</h2>
-        <ol className="list-decimal pl-5 text-sm">
+      <section aria-label="Schedule" className="neu-card" style={{ marginTop: 16 }}>
+        <h2 className="kit-display" style={{ fontSize: 17 }}>Schedule</h2>
+        <ol style={{ paddingLeft: 20, marginTop: 8 }}>
           {days.map((d) => (
             <li key={d.day}>
               Day {d.day}: {d.focus} ({d.minutes} min)

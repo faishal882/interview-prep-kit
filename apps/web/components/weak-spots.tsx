@@ -44,27 +44,27 @@ export function WeakSpotsReport({ kitId }: { kitId: string }) {
   }
 
   return (
-    <section aria-label="Weak spots" id="weak-spots" className="rounded border p-3">
+    <section aria-label="Weak spots" id="weak-spots" className="neu-card-flat">
       <LiveRegion message={live} />
-      <h2 className="font-medium">Weak spots</h2>
-      <ol className="mt-2 space-y-2">
+      <span className="eyebrow">Weak spots</span>
+      <ol className="ruled-list" style={{ marginTop: 8 }}>
         {spots.map((s, i) => (
-          <li key={s.requirement_id} className="rounded border p-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span aria-label={`Rank ${i + 1}`} className="font-mono text-xs">
-                #{i + 1}
+          <li key={s.requirement_id} style={{ padding: "14px 4px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="proof-icon" aria-label={`Rank ${i + 1}`} style={{ width: 32, height: 32, flexBasis: 32, fontSize: 14 }}>
+                {i + 1}
               </span>
-              <span className="font-medium">{s.requirement_id}</span>
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs dark:bg-neutral-800">{s.priority}</span>
+              <span className="kit-display" style={{ fontWeight: 600 }}>{s.requirement_id}</span>
+              <span className="pill pill-neutral">{s.priority}</span>
             </div>
-            <p className="mt-1">{s.text}</p>
-            <p className="mt-1 text-xs text-neutral-500">Why: {s.reasons.length > 0 ? s.reasons.join("; ") : "well covered"}</p>
-            <p className="mt-1 text-xs">
-              <Link href={`/kits/${kitId}/questions`} className="underline">
+            <p style={{ marginTop: 8 }}>{s.text}</p>
+            <p style={{ marginTop: 4, fontSize: 13, color: "var(--copy)" }}>Why: {s.reasons.length > 0 ? s.reasons.join("; ") : "well covered"}</p>
+            <p style={{ marginTop: 4, fontSize: 13 }}>
+              <Link href={`/kits/${kitId}/questions`} style={{ color: "var(--primary)", fontWeight: 600 }}>
                 {s.questionIds.length} Questions
               </Link>{" "}
               ·{" "}
-              <Link href={`/kits/${kitId}/practice`} className="underline">
+              <Link href={`/kits/${kitId}/practice`} style={{ color: "var(--primary)", fontWeight: 600 }}>
                 {s.flashcardIds.length} Flashcards
               </Link>
             </p>
