@@ -47,6 +47,12 @@ A finding from the company's site or public discussion about how it interviews, 
 **Research log**:
 The honest record of what was retrieved, what was skipped and why, and what could not be found.
 
+### Generation
+
+**Step**:
+One stage of generating a Kit, with its own status shown to the candidate: pending, running, done, skipped (with a reason) or failed.
+_Avoid_: stage, phase
+
 ### Quality and editing
 
 **Coverage**:
@@ -68,7 +74,19 @@ _Avoid_: tab, part
 A Kit item that is user-written, edited, or pinned, and which regeneration never removes or overwrites.
 _Avoid_: locked item, frozen item
 
+**Proposal**:
+A regenerated version of an edited or pinned single-block Section (the company brief) held for the candidate to accept or reject instead of replacing the current text.
+_Avoid_: suggestion, draft
+
 ### Practice
 
 **Confidence**:
 The candidate's self-rating (1–3) of how well they recalled a Flashcard.
+
+**Drill**:
+One sitting of practice: a fixed set of Flashcards drawn, in order of least confidence first, from the practice queue.
+_Avoid_: session, study session
+
+**Weak spot**:
+A Requirement the candidate is least ready on, judged from practice Confidence, Coverage and priority.
+_Avoid_: weakness, problem area

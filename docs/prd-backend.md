@@ -113,7 +113,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 78. As a candidate, I want to see what I have covered and what I haven't, overall and per Requirement, so that I know where to focus.
 79. As a candidate, I want the next session ordered by what I'm least sure of, with unseen cards before mastered ones and a slight boost for cards on must-have Requirements, so that my time goes where it helps most.
 80. As a candidate, I want my practice progress to survive regenerating the Kit's content.
-81. As a candidate, I want to type an answer to a Question and see which points of the outline I covered and which I missed, so that I know whether my practice answer is any good.
+81. (Stretch) As a candidate, I want to type an answer to a Question and see which outline points share wording with my answer, clearly labelled as a keyword match only, so that I get a rough self-check.
 
 ### Batch entry point
 82. As an assessor, I want one command that reads a file of Cases and writes a file of results, so that I can evaluate the pipeline without the interface.
@@ -129,7 +129,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 92. As an assessor, I want the pipeline to need only one LLM key, so that I don't need extra accounts.
 
 ### Robustness and safety
-93. As a candidate, I want a rate-limited or briefly failing LLM provider to be retried with backoff and, if configured, failed over to another, so that a transient problem doesn't fail my Kit.
+93. As a candidate, I want a rate-limited or briefly failing LLM provider to be retried with backoff, so that a transient problem doesn't fail my Kit.
 94. As a candidate, I want invalid or incomplete model output repaired or regenerated and validated against the Kit structure before it is saved, so that I never receive a malformed Kit.
 95. As a candidate, I want a Kit that cannot be validly assembled to fail with a clear error rather than be saved broken.
 96. As an operator, I want fetched URLs validated and private, loopback and link-local addresses rejected by default, so that the service cannot be used to reach internal systems.
@@ -144,6 +144,14 @@ The same pipeline is exposed through a command-line batch entry point that reads
 103. As a developer, I want each pipeline run, step, fetch and LLM call traced with token, latency, retry and rate-limit detail, so that I can see how a run behaved.
 104. As a developer, I want that telemetry to be off unless an endpoint is configured and never to slow or fail a run, so that the batch command needs no extra setup.
 105. As a developer, I want job description and page text never recorded in telemetry, so that user content isn't leaked.
+
+### Weak spots and frontend support
+106. As a candidate, I want a weak-spots report ranking my Requirements by how ready I am — combining my practice Confidence, whether any Question covers them, and their priority — so that I know what to study next.
+107. As a candidate, I want each weak spot to say why it ranks where it does (never practised, low Confidence, no Question, no Flashcard), so that I can act on it.
+108. As a candidate, I want to generate a Question for one specific uncovered Requirement, so that I can close a Gap without regenerating a whole Category.
+109. As a candidate, I want my Kit list to show each Kit's company, role, days, status, counts of Requirements and Questions, and last-updated time, so that I can find and resume the right one.
+110. As a candidate, I want every item in a Kit to tell me whether it was generated, edited, written by me or pinned, so that I can see beforehand what a regeneration would replace.
+111. As a developer, I want the server to run against a deterministic scripted LLM selected by configuration, so that end-to-end tests need no API key or quota.
 
 ## Implementation Decisions
 
@@ -163,6 +171,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 - **Coverage loop.** Interface: (Kit draft) → Kit with Gaps filled or honestly listed. Maximum three Passes; stops on no gaps, on the cap, or on no progress; the last Pass targets `must` Gaps only.
 - **Scheduler.** Pure and deterministic. Interface: (Questions, Requirements, days) → Schedule with exactly `days` days. Weights by difficulty and priority; front-loaded triangular allocation when Questions ≥ days; Review days when fewer; integer-minute estimates by Category and difficulty; overload warning above 180 minutes/day average.
 - **Practice prioritizer.** Pure. Interface: (cards, review history, now) → ordered queue. Confidence-weighted with recency decay, unseen-before-mastered, must-boost.
+- **Weak-spots analyzer.** Pure and deterministic. Interface: (Requirements, Questions, Flashcards, review history) → Requirements ranked most-to-least in need of attention, each with the reasons behind its rank. Readiness combines the mean Confidence of Flashcards tied to the Requirement (unseen counts as least ready), whether any Question covers it, and its priority; `must` outranks `nice` on ties.
 - **LLM gateway.** Interface: structured generation against a schema. Single Gemini model, rate-limit and token budgeting, backoff honouring provider hints, one repair attempt on invalid output. Only Gemini is required.
 - **Pipeline orchestrator.** Interface: (Case, dependencies, progress callback) → Kit + research log. Pure orchestration with no persistence; JD analysis runs concurrently with retrieval; question generation waits for both. Also provides Section regeneration.
 - **Job queue.** Mongo-backed claim/heartbeat/requeue-once (ADR-0002); one active job per Kit; bounded concurrency; step-level progress records.
@@ -183,15 +192,17 @@ The same pipeline is exposed through a command-line batch entry point that reads
 - Duplicate key = user + normalised JD + normalised URL + days; only ready/generating Kits dedupe; `force_new` overrides.
 - Security: URL guard strict by default (CLI opts out explicitly); allowlisted content types; size and time limits; untrusted text framed as data; keyword markers flag instruction-style pages for dropping.
 - Required config: only the Gemini key; search API and telemetry endpoint are optional.
+- The server (not only the batch command) can run against a scripted fake LLM chosen by configuration, so the frontend's end-to-end test needs no key or quota.
 
 ### API contracts (routes)
 
 - Auth: register, login, logout, current user.
-- Kits: create (accepted with kit id and job id, or existing Kit for duplicates), batch create, list, get, delete, export.
-- Jobs: get by id (status + per-step progress).
-- Items: create/patch/delete for Questions, Flashcards, Requirements, brief and Schedule days; reorder/move for Questions with target Category and predecessor.
-- Sections: regenerate brief / one Category / Schedule (returns a job; brief on an edited brief returns a proposal).
-- Practice: next queue, record review, summary, and the answer check for a Question.
+- Kits: create (accepted with kit id and job id, or the existing Kit flagged as a duplicate), batch create, list (summary per Kit: company, role, days, status, Requirement and Question counts, last-updated), get, delete, export.
+- Jobs: get by id (status + a fixed per-Step shape: name, status, message, started/finished times).
+- Items: create/patch/delete for Questions, Flashcards, Requirements, brief and Schedule days; reorder/move for Questions with target Category and predecessor. Item responses include item metadata (origin, edited, pinned, revision); only the export strips it.
+- Sections: regenerate brief / one Category / Schedule (returns a job; brief on an edited brief returns a proposal). Also generate a Question for one Requirement (returns a job).
+- Practice: next queue, record review, summary, weak-spots report, and (stretch) the keyword answer check for a Question.
+- A committed OpenAPI document is the contract the frontend generates its types from.
 - Health.
 
 All errors share one envelope: code, message, details, reference id.
@@ -208,7 +219,7 @@ Input: array of Cases. Output: version, generated-at, and one entry per Case wit
 
 - **What makes a good test:** exercise external behaviour through a module's public interface — inputs in, outputs out — never internal helpers, prompt wording or call order. Tests must not depend on a live model or the open internet.
 - **Required by the brief and prioritised:** Scheduler (including property-based tests: exactly `days` days, integer minutes, valid ids, every Question scheduled, harder/priority material never later than lighter when Questions ≥ days, Review days when fewer, zero Questions), Coverage checker, Kit validator.
-- **Also tested:** item merge rules (protected survival, in-flight edit survival, moved-Category protection, no duplicates), fractional ordering, Requirement evidence grounding (paraphrase rejected, whitespace differences tolerated, injected text not in the JD dropped), URL guard (private/loopback/link-local/metadata, redirects to private, strict default), robots semantics, practice prioritizer, dedupe key normalisation, job claim/requeue semantics, auth ownership (other user's Kit is indistinguishable from missing).
+- **Also tested:** item merge rules (protected survival, in-flight edit survival, moved-Category protection, no duplicates), fractional ordering, Requirement evidence grounding (paraphrase rejected, whitespace differences tolerated, injected text not in the JD dropped), URL guard (private/loopback/link-local/metadata, redirects to private, strict default), robots semantics, practice prioritizer, weak-spots analyzer (ranking order, reasons, unseen and uncovered cases), OpenAPI document drift, dedupe key normalisation, job claim/requeue semantics, auth ownership (other user's Kit is indistinguishable from missing).
 - **Integration:** the full pipeline with a scripted fake LLM against fixture company sites on an ephemeral local server — a site with a buried hiring page, a site with none, a 404 site, a timing-out site — plus a two-line description, invalid model output, a provider rate-limit storm, and a first draft that misses a must so the second Pass demonstrably closes the Gap.
 - **Contract:** every produced Kit validates against the exported structure schema; batch output matches the agreed output shape; the batch command runs end-to-end with no database and no optional keys.
 - **Prior art:** none — the repository is greenfield. The fixture sites and cases become the shared test assets.

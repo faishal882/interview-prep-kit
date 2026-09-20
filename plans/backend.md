@@ -16,11 +16,12 @@ Durable decisions that apply across all phases:
 - **Kit limits**: ≤ 30 Questions, ≤ 20 Flashcards, ≤ 12 crawled pages, depth ≤ 2, ≤ 3 coverage Passes.
 - **Routes** (all under `/api`):
   - Auth: `POST auth/register`, `POST auth/login`, `POST auth/logout`, `GET me`
-  - Kits: `POST kits` (202 `{kit_id, job_id}`, or the existing Kit for duplicates), `POST kits/batch`, `GET kits`, `GET|DELETE kits/{id}`, `GET kits/{id}/export`
-  - Jobs: `GET jobs/{id}` (status + per-step progress)
-  - Items: create/patch/delete under `kits/{id}/{questions|flashcards|requirements|brief|schedule}`; `POST kits/{id}/questions/reorder` (target Category + predecessor)
-  - Sections: `POST kits/{id}/sections/{brief|questions:<category>|schedule}/regenerate`
-  - Practice: `GET kits/{id}/practice/queue`, `POST kits/{id}/practice/reviews`, `GET kits/{id}/practice/summary`, `POST kits/{id}/practice/check`
+  - Kits: `POST kits` (202 `{kit_id, job_id}`, or the existing Kit with `duplicate: true`), `POST kits/batch`, `GET kits` (summary per Kit: company, role, days, status, Requirement and Question counts, updated-at), `GET|DELETE kits/{id}`, `GET kits/{id}/export`
+  - Jobs: `GET jobs/{id}` (status + fixed per-Step shape: name, status, message, started/finished times)
+  - Items: create/patch/delete under `kits/{id}/{questions|flashcards|requirements|brief|schedule}`; `POST kits/{id}/questions/reorder` (target Category + predecessor). Item responses include metadata (origin, edited, pinned, revision); only export strips it.
+  - Sections: `POST kits/{id}/sections/{brief|questions:<category>|schedule}/regenerate`; `POST kits/{id}/requirements/{requirement_id}/generate` (one Question for one Requirement, returns a job)
+  - Practice: `GET kits/{id}/practice/queue`, `POST kits/{id}/practice/reviews`, `GET kits/{id}/practice/summary`, `GET kits/{id}/practice/weak-spots`, and (stretch) `POST kits/{id}/practice/check`
+  - Contract: a committed OpenAPI document; the frontend generates its types from it
   - `GET health`
 - **Error envelope** (every non-2xx): `{error: {code, message, details, trace_id}}`; `trace_id` falls back to a request id when telemetry is off.
 - **Schema (MongoDB)**: collections `users`, `sessions` (TTL), `kits`, `jobs`, `practice_progress`, `fetch_cache` (TTL). A Kit is one document: input, Kit content with per-item metadata, research log, section revision counters, status. In-memory repositories back the CLI and tests.
@@ -47,6 +48,7 @@ The thinnest complete path: a repository scaffold with the root commands (`setup
 - [ ] A Case that raises is recorded as `failed` and the run continues
 - [ ] The validator rejects duplicate ids, dangling references, wrong schedule length, non-integer minutes, bad difficulty
 - [ ] A missing `GEMINI_API_KEY` aborts immediately with `MISSING_CREDENTIALS` (bypassed when a fake LLM is selected for tests)
+- [ ] The scripted fake LLM is selectable by configuration for both the batch command and, later, the server (no key, no quota)
 - [ ] Validator tests pass
 
 ---
@@ -176,7 +178,7 @@ Make the batch command production-worthy: two Cases at a time sharing one provid
 
 ### What to build
 
-Registration, login, logout and current-user with Argon2id, hashed opaque sessions with server-side expiry, secure cookies, origin checks on mutating requests, login throttling, ownership enforcement, and the uniform error envelope with a reference id. Health endpoint. Mongo repositories with in-memory equivalents.
+Registration, login, logout and current-user with Argon2id, hashed opaque sessions with server-side expiry, secure cookies, origin checks on mutating requests, login throttling, ownership enforcement, and the uniform error envelope with a reference id. Health endpoint. Mongo repositories with in-memory equivalents. The OpenAPI document is exported and committed.
 
 ### Acceptance criteria
 
@@ -186,6 +188,7 @@ Registration, login, logout and current-user with Argon2id, hashed opaque sessio
 - [ ] Another user's resource is indistinguishable from a missing one (404)
 - [ ] Repeated failed logins are throttled
 - [ ] Mutating requests with a foreign Origin are rejected
+- [ ] The committed OpenAPI document matches the running app (a test fails on drift)
 - [ ] Auth and ownership tests pass
 
 ---
@@ -196,7 +199,7 @@ Registration, login, logout and current-user with Argon2id, hashed opaque sessio
 
 ### What to build
 
-Creating a Kit returns 202 with a Kit id and job id (or the existing Kit for a duplicate); a Mongo-backed worker claims jobs, runs the pipeline, writes per-step progress and heartbeats, requeues stale jobs once, and fails them retryable thereafter. Only one active job per Kit; concurrency bounded. Dedupe on the normalised key (including days), `force_new`, failed Kits retried in place. List, get, delete and export (exact structure, metadata stripped).
+Creating a Kit returns 202 with a Kit id and job id (or the existing Kit for a duplicate); a Mongo-backed worker claims jobs, runs the pipeline, writes per-step progress and heartbeats, requeues stale jobs once, and fails them retryable thereafter. Only one active job per Kit; concurrency bounded. Dedupe on the normalised key (including days), `force_new`, failed Kits retried in place. List (with a per-Kit summary: company, role, days, status, Requirement and Question counts, updated-at), get (items carry their metadata), delete and export (exact structure, metadata stripped). Job responses expose a fixed per-Step shape (name, status, message, started/finished times); a duplicate create response is flagged.
 
 ### Acceptance criteria
 
@@ -206,6 +209,7 @@ Creating a Kit returns 202 with a Kit id and job id (or the existing Kit for a d
 - [ ] A double trigger yields a single active job
 - [ ] The exported Kit validates against the structure schema and contains no item metadata
 - [ ] Deleting a Kit removes it and its job/practice data
+- [ ] The list returns the summary fields; a duplicate create is flagged `duplicate: true`; every Step has name, status, message and timings
 - [ ] Queue, dedupe and export tests pass
 
 ---
@@ -248,11 +252,11 @@ Item create/patch/delete for Questions, Flashcards, Requirements, the brief and 
 
 ## Phase 12: Regeneration
 
-**User stories**: 64–69, 71
+**User stories**: 64–69, 71, 108
 
 ### What to build
 
-Section regeneration as jobs: the brief (a proposal when edited or pinned), one Category (replace only unprotected items via a single atomic update that also keeps any item whose revision changed since the job started; exclusion list prevents duplicates; coverage recomputed and gap-filled for that Category's Requirements), and the Schedule (rebuild with a warning that manual edits are replaced).
+Section regeneration as jobs: the brief (a proposal when edited or pinned), one Category (replace only unprotected items via a single atomic update that also keeps any item whose revision changed since the job started; exclusion list prevents duplicates; coverage recomputed and gap-filled for that Category's Requirements), and the Schedule (rebuild with a warning that manual edits are replaced). Also targeted generation: a job that generates Questions for exactly one Requirement (routed by its kind, avoiding existing Questions) and merges them without touching anything else.
 
 ### Acceptance criteria
 
@@ -262,25 +266,29 @@ Section regeneration as jobs: the brief (a proposal when edited or pinned), one 
 - [ ] Other Sections are byte-for-byte unchanged
 - [ ] An edited brief yields a proposal that can be accepted or rejected; an untouched brief is replaced directly
 - [ ] Rebuilding the Schedule clears the stale flag and reflects current Questions
+- [ ] Generating for one Requirement adds Question(s) covering it, changes nothing else, and clears its Gap
 - [ ] Merge-rule tests cover protected survival, in-flight edits and no-duplicate behaviour
 
 ---
 
-## Phase 13: Practice and answer check
+## Phase 13: Practice and weak spots
 
-**User stories**: 76–81
+**User stories**: 76–80, 106, 107 (81 is a stretch)
 
 ### What to build
 
-Practice queue ordering by the confidence-weighted prioritizer (unseen before mastered, recency decay, must boost), recording 1–3 confidence reviews, coverage summary overall/per Category/per Requirement, progress stored independently of Kit content so regeneration never wipes it, and the answer check: typed answer versus a Question's outline points, judged per point by literal word-overlap, returning covered/missing points.
+Practice queue ordering by the confidence-weighted prioritizer (unseen before mastered, recency decay, must boost), recording 1–3 confidence reviews, coverage summary overall/per Category/per Requirement, and progress stored independently of Kit content so regeneration never wipes it. On top of that, the weak-spots report: Requirements ranked by readiness (practice Confidence, whether a Question covers them, priority), each with the reasons for its rank.
+
+Stretch, only if time remains: the keyword answer check — a typed answer versus a Question's outline points, judged per point by literal word-overlap, returned as covered/missing and labelled as a keyword match only.
 
 ### Acceptance criteria
 
 - [ ] Queue order follows the documented formula; unseen cards precede mastered ones
 - [ ] Recording a review updates covered status and the summary
 - [ ] Regenerating a Category leaves practice progress for surviving cards intact
-- [ ] The answer check returns per-point verdicts via literal overlap and states its limits
-- [ ] Prioritizer tests pass
+- [ ] The weak-spots report ranks a never-practised must Requirement with no Question above a well-practised nice one, and states the reasons
+- [ ] Prioritizer and weak-spots analyzer tests pass
+- [ ] (Stretch) The answer check returns per-point verdicts via literal overlap and states its limits
 
 ---
 
