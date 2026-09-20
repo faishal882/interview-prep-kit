@@ -1,0 +1,11 @@
+{
+  "name": "trao",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "python3 -m venv apps/api/.venv && apps/api/.venv/bin/pip install -e \"apps/api[test]\"",
+    "test": "apps/api/.venv/bin/python -m pytest apps/api/tests -q",
+    "evaluate": "node scripts/py.mjs -m app.cli.evaluate",
+    "dev": "apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload"
+  }
+}
