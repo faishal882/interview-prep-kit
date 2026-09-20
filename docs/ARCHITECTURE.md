@@ -163,7 +163,7 @@ Steps 2–3 (JD analysis) run concurrently with 4–5 (retrieval); they are inde
 | Step | Responsibility | Model | On failure |
 |---|---|---|---|
 | ingest | Normalise text, size limits, parse URL, thin-JD flag | code (+ Jev Score for "detail level") | Empty JD → `INVALID_INPUT`; bad URL → recorded warning, continue JD-only |
-| extract_requirements | LLM returns `{text, evidence, section_heading}`. **Code verifies `evidence` is a substring of the JD** (whitespace-normalised) and drops anything that isn't. Code assigns ids `r1…rn`, dedupes. Also title/company/location/responsibilities | LLM + code | Retry, one repair call; zero requirements → thin kit, not an error |
+| extract_requirements | LLM returns **atomic** Requirements `{text, evidence, section_heading}` (one claim, one priority; "X or Y" stays one; cap ~25). Explicit qualifications and responsibility lines stating a competency the candidate must demonstrate qualify; pure tasks stay in `responsibilities`; **no implied requirements**. **Code verifies `evidence` is a substring of the JD** (whitespace-normalised) and drops anything that isn't. Code assigns ids `r1…rn`, dedupes. Metadata never guessed: company = JD → homepage `og:site_name`/title → domain label; location = JD or `""`; seniority from a controlled vocabulary, else `unspecified` | LLM + code | Retry, one repair call; zero requirements → thin kit, not an error |
 | classify_requirements | `kind` (technical/behavioural/domain), `priority` (must/nice), `seniority`. State passed to Jev includes the requirement **and its section heading** ("Bonus points" vs "Required") | Jev; heuristic fallback (keywords: required/must/N+ years vs nice/bonus/preferred/plus) | Low Jev confidence → heuristic |
 | crawl_company | Section 6.3 | Jev for link ranking | Failed page skipped and recorded |
 | research_discussion | HN Algolia (free, keyless) + optional search API; Jev Noul filters "discusses interviewing at this company" | Jev | Empty → recorded "nothing found" |
@@ -179,7 +179,10 @@ Steps 2–3 (JD analysis) run concurrently with 4–5 (retrieval); they are inde
 
 ### 6.3 Retrieval
 
-- **Crawler:** priority-queue BFS from the company URL. Budget: `MAX_CRAWL_PAGES` (default 12), depth ≤ 2, ≤ 3 concurrent fetches, ≤ 1 request/second per host. Follows **relative links**; never assumes a host (fixture sites are served from localhost).
+- **Crawler:** priority-queue BFS from the company URL. Budget: `MAX_CRAWL_PAGES` (default 12), depth ≤ 2, ≤ 3 concurrent fetches, ≤ 1 request/second per host (honouring `Crawl-delay`), identifying User-Agent. Follows **relative links**; never assumes a host (fixture sites are served from localhost).
+- **Scope:** same registrable domain (subdomains allowed) plus a small allowlist of ATS hosts (greenhouse, lever, ashby, workable) followed one hop from a link on the company site. Localhost/IP hosts match on exact host + port. **Static HTML only** — no headless browser; JS-rendered pages are a documented limitation.
+- **`pages_used`** lists only pages whose cleaned text went into a prompt; failed/skipped fetches appear only in `research_log`.
+- **Public discussion:** HN Algolia (keyless), plus a search API if `SEARCH_API_KEY` is set; up to 3 threads fetched as JSON. Skipped (but recorded as `{queried: false, reason}`) when the company URL is private/loopback.
 - **Link ranking:** for each discovered link, Jev scores "likely describes how this company hires or what it does" from `{anchor text, URL path, surrounding text}`. Cheap, parallel, 70–500 ms. Fixed path lists (`/careers`) are **not** used as the mechanism; they may only seed nothing.
 - **Page typing:** Jev Choice — `hiring_process | about | product | engineering_blog | other`. Hiring/about pages are kept for the brief; others dropped.
 - **Cleaning:** trafilatura main-content extraction, capped per page and in total (token budget).
@@ -245,9 +248,10 @@ Inputs: questions, requirements, `days`. Output: exactly `days` day objects with
 - `POST /kits` validates, computes `dedupe_key = sha256(user + normalised JD + normalised URL + days)`, and:
   - existing kit with same key → returns it (`200`, `duplicate: true`); `force_new` overrides;
   - else creates kit `status=generating` + job → `202 {kit_id, job_id}`.
-- In-process asyncio runner; `MAX_CONCURRENT_RUNS` (default 2) semaphore. Job doc holds `steps[] = {name, status: pending|running|done|skipped|failed, message, started_at, finished_at}` and a `heartbeat` (every 5 s).
+- **Mongo-backed queue (ADR-0002):** jobs are documents; an in-process worker loop claims them atomically (`find_one_and_update`), bounded by `MAX_CONCURRENT_RUNS` (default 2). Job doc holds `steps[] = {name, status: pending|running|done|skipped|failed, message, started_at, finished_at}`, an `attempts` counter and a `heartbeat` (every 5 s). The batch CLI bypasses the queue and calls the pipeline directly.
+- **Dedupe:** only `ready` or `generating` kits dedupe; a `failed` kit is retried in place. Different `days` → a new kit.
 - **One active job per kit** (partial unique index); triggering again returns the existing job.
-- **Recovery:** on startup, jobs with a stale heartbeat are marked `failed (retryable)`. Retrying re-runs the pipeline; crawling is fast via `fetch_cache`.
+- **Recovery:** a job whose heartbeat is stale is **requeued once**; a second stale run fails it as retryable. Retrying re-runs the pipeline; crawling is fast via `fetch_cache`.
 - **Partial results:** a failed *step* is recorded; independent later steps still run where possible. The kit is `ready` with `warnings` unless it can't be validly assembled.
 - Assumes a **single instance** (documented limitation).
 
@@ -276,7 +280,7 @@ Batch performance: 2 cases concurrently, global LLM limiter shared, per-case dea
 
 ### 6.12 Security (kept proportionate)
 
-- **URL guard (`url_guard.py`):** http/https only; resolve DNS and reject private, loopback, link-local (incl. `169.254.169.254`) and reserved ranges **when `ENV=production`**; re-validate on every redirect hop (max 3). Default `ENV` is `development`, so the CLI works against localhost fixture sites from a clean clone. Residual risk: DNS rebinding between check and connect (documented).
+- **URL guard (`url_guard.py`):** http/https only; resolve DNS and reject private, loopback, link-local (incl. `169.254.169.254`) and reserved ranges; re-validate on every redirect hop (max 3). **Strict by default** (fail-safe if config is missing). The batch CLI entrypoint opts out explicitly (`ALLOW_PRIVATE_URLS=true`) because graders serve company sites from localhost; local dev sets `ENV=development`. Residual risk: DNS rebinding between check and connect (documented).
 - **Fetch limits:** content-type allowlist (`text/html`, `text/plain`, `application/xhtml+xml`), streamed size cap (2 MB), connect 5 s / total 15 s timeouts.
 - **Prompt injection:** JD and page text are wrapped in delimited blocks the prompt declares to be *data*; the LLM has no tools and its output is schema-validated; requirement `evidence` must exist in the JD; Jev Noul flags "text addresses an AI / contains instructions" → page is dropped and logged. Detection is a signal, not the boundary.
 - **Auth:** argon2id; opaque 256-bit session token, only its SHA-256 stored in Mongo (`sessions`, TTL index, 7 days); cookie `httpOnly; Secure; SameSite=Lax`, first-party via the Vercel rewrite. Mutating requests require `Origin ∈ ALLOWED_ORIGINS`. In-memory login rate limit per IP+email. Every kit query is filtered by `user_id`; other users' kits return `404`.
@@ -429,14 +433,14 @@ infra/
 
 | Var | Where | Purpose |
 |---|---|---|
-| `ENV` | api | `development` (default) or `production`; controls the private-URL block |
-| `ALLOW_PRIVATE_URLS` | api | explicit override of the URL guard |
+| `ENV` | api | `development` (relaxes dev-only behaviour) or `production` (default) |
+| `ALLOW_PRIVATE_URLS` | api, CLI | explicit opt-out of the private/loopback URL block; **default false**; the CLI sets it itself |
 | `MONGODB_URI` | api | database |
 | `SESSION_SECRET` | api | signing/hashing key for sessions |
 | `ALLOWED_ORIGINS` | api | CSRF Origin check |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | api, CLI | primary generation |
-| `GROQ_API_KEY`, `GROQ_MODEL` | api, CLI | fallback generation |
-| `TYPESAFE_API_KEY`, `JEV_ENABLED` | api, CLI | Jev decisions (fallbacks when off) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | api, CLI | primary generation — **the only required key** (missing → fail fast, `MISSING_CREDENTIALS`) |
+| `GROQ_API_KEY`, `GROQ_MODEL` | api, CLI | optional fallback generation |
+| `TYPESAFE_API_KEY`, `JEV_ENABLED` | api, CLI | optional Jev decisions; without it the LLM/heuristics do the work (logged, not an error). Jev overrides only at confidence ≥ 0.7 |
 | `SEARCH_API_KEY` | api, CLI | optional public-discussion search |
 | `MAX_CRAWL_PAGES`, `CRAWL_DEPTH`, `MAX_CONCURRENT_RUNS` | api, CLI | budgets |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `DEBUG_CAPTURE_CONTENT` | api, CLI | local telemetry demo only |
