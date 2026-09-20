@@ -1,0 +1,346 @@
+{
+  "$defs": {
+    "CompanyBrief": {
+      "properties": {
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        },
+        "what_they_do": {
+          "default": "",
+          "title": "What They Do",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "hiring_process": {
+          "default": "",
+          "title": "Hiring Process",
+          "type": "string"
+        }
+      },
+      "title": "CompanyBrief",
+      "type": "object"
+    },
+    "Coverage": {
+      "properties": {
+        "uncovered_requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uncovered Requirement Ids",
+          "type": "array"
+        },
+        "passes": {
+          "default": 0,
+          "title": "Passes",
+          "type": "integer"
+        }
+      },
+      "title": "Coverage",
+      "type": "object"
+    },
+    "Flashcard": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "front": {
+          "title": "Front",
+          "type": "string"
+        },
+        "back": {
+          "title": "Back",
+          "type": "string"
+        },
+        "requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "front",
+        "back"
+      ],
+      "title": "Flashcard",
+      "type": "object"
+    },
+    "Question": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "category": {
+          "enum": [
+            "technical",
+            "behavioural",
+            "system-design",
+            "company-fit"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "answer_outline": {
+          "title": "Answer Outline",
+          "type": "string"
+        },
+        "difficulty": {
+          "title": "Difficulty",
+          "type": "integer"
+        },
+        "outline_points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outline Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "requirement_ids",
+        "category",
+        "prompt",
+        "answer_outline",
+        "difficulty"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "Requirement": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "technical",
+            "behavioural",
+            "domain"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "must",
+            "nice"
+          ],
+          "title": "Priority",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "kind",
+        "priority"
+      ],
+      "title": "Requirement",
+      "type": "object"
+    },
+    "Role": {
+      "properties": {
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "seniority": {
+          "default": "unspecified",
+          "title": "Seniority",
+          "type": "string"
+        },
+        "responsibilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Responsibilities",
+          "type": "array"
+        },
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          },
+          "title": "Requirements",
+          "type": "array"
+        }
+      },
+      "title": "Role",
+      "type": "object"
+    },
+    "Schedule": {
+      "properties": {
+        "days_available": {
+          "title": "Days Available",
+          "type": "integer"
+        },
+        "days": {
+          "items": {
+            "$ref": "#/$defs/ScheduleDay"
+          },
+          "title": "Days",
+          "type": "array"
+        }
+      },
+      "required": [
+        "days_available"
+      ],
+      "title": "Schedule",
+      "type": "object"
+    },
+    "ScheduleDay": {
+      "properties": {
+        "day": {
+          "title": "Day",
+          "type": "integer"
+        },
+        "focus": {
+          "default": "",
+          "title": "Focus",
+          "type": "string"
+        },
+        "question_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Question Ids",
+          "type": "array"
+        },
+        "minutes": {
+          "title": "Minutes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "day",
+        "minutes"
+      ],
+      "title": "ScheduleDay",
+      "type": "object"
+    },
+    "Source": {
+      "properties": {
+        "company": {
+          "default": "",
+          "title": "Company",
+          "type": "string"
+        },
+        "company_url": {
+          "default": "",
+          "title": "Company Url",
+          "type": "string"
+        },
+        "role": {
+          "default": "",
+          "title": "Role",
+          "type": "string"
+        },
+        "location": {
+          "default": "",
+          "title": "Location",
+          "type": "string"
+        },
+        "jd_chars": {
+          "default": 0,
+          "title": "Jd Chars",
+          "type": "integer"
+        },
+        "researched_at": {
+          "default": "",
+          "title": "Researched At",
+          "type": "string"
+        },
+        "pages_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pages Used",
+          "type": "array"
+        }
+      },
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "company_brief": {
+      "$ref": "#/$defs/CompanyBrief"
+    },
+    "role": {
+      "$ref": "#/$defs/Role"
+    },
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/Question"
+      },
+      "title": "Questions",
+      "type": "array"
+    },
+    "flashcards": {
+      "items": {
+        "$ref": "#/$defs/Flashcard"
+      },
+      "title": "Flashcards",
+      "type": "array"
+    },
+    "schedule": {
+      "$ref": "#/$defs/Schedule"
+    },
+    "coverage": {
+      "$ref": "#/$defs/Coverage"
+    },
+    "research_log": {
+      "additionalProperties": true,
+      "title": "Research Log",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "source",
+    "company_brief",
+    "role",
+    "schedule",
+    "coverage"
+  ],
+  "title": "Kit",
+  "type": "object"
+}
