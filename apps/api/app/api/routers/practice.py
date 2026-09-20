@@ -55,6 +55,37 @@ class CheckBody(BaseModel):
     answer: str
 
 
+@router.get("/api/kits/{kit_id}/practice/weak-spots")
+async def weak_spots(kit_id: str, user: dict = Depends(current_user)) -> dict:
+    """Rank Requirements by readiness with reasons (practice Confidence, coverage, priority)."""
+    k = get_kit_or_404(kit_id, user["id"])
+    kit = k.get("kit") or {}
+    reqs = (kit.get("role") or {}).get("requirements", [])
+    questions = kit.get("questions", [])
+    cards = kit.get("flashcards", [])
+    by_req_q = {r["id"]: [q["id"] for q in questions if r["id"] in q.get("requirement_ids", [])] for r in reqs}
+    by_req_f = {r["id"]: [c["id"] for c in cards if r["id"] in (c.get("requirement_ids") or [])] for r in reqs}
+    spots = []
+    for r in reqs:
+        fids = by_req_f.get(r["id"], [])
+        practised = [fid for fid in fids if DB.practice.get(f"{kit_id}:{fid}")]
+        low = any((DB.practice.get(f"{kit_id}:{fid}", [{"confidence": 3}])[-1].get("confidence", 3) <= 2) for fid in practised)
+        reasons = []
+        if not practised:
+            reasons.append("never practised")
+        if low:
+            reasons.append("low Confidence")
+        if not by_req_q.get(r["id"]):
+            reasons.append("no Question")
+        if not fids:
+            reasons.append("no Flashcard")
+        score = (3 if r.get("priority") == "must" else 0) + (3 if not by_req_q.get(r["id"]) else 0) + (1 if not fids else 0) + (2 if not practised else 0) + (2 if low else 0)
+        spots.append({"requirement_id": r["id"], "reasons": reasons, "score": score,
+                      "question_ids": by_req_q.get(r["id"], []), "flashcard_ids": fids})
+    spots.sort(key=lambda s: (-s["score"], s["requirement_id"]))
+    return {"spots": spots}
+
+
 @router.post("/api/kits/{kit_id}/practice/check")
 async def check(kit_id: str, body: CheckBody, user: dict = Depends(current_user)) -> dict:
     k = get_kit_or_404(kit_id, user["id"])

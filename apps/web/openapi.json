@@ -1475,6 +1475,64 @@
         }
       }
     },
+    "/api/kits/{kit_id}/practice/weak-spots": {
+      "get": {
+        "summary": "Weak Spots",
+        "description": "Rank Requirements by readiness with reasons (practice Confidence, coverage, priority).",
+        "operationId": "weak_spots_api_kits__kit_id__practice_weak_spots_get",
+        "parameters": [
+          {
+            "name": "kit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kit Id"
+            }
+          },
+          {
+            "name": "session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Weak Spots Api Kits  Kit Id  Practice Weak Spots Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/kits/{kit_id}/practice/check": {
       "post": {
         "summary": "Check",
