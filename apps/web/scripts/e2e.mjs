@@ -1,6 +1,7 @@
 // End-to-end journey against the real backend in scripted fake-LLM mode:
-// register → create a Kit → watch progress → edit a Question → regenerate its
-// Category → the edit survives. Needs no key or quota.
+// seed a user via the API, then log in → create a Kit → watch progress →
+// edit a Question → regenerate its Category → the edit survives.
+// Needs no key or quota. The UI itself is login-only (no registration screen).
 import { spawn } from "node:child_process";
 
 const PORT = 8101;

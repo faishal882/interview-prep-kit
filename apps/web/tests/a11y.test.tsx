@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 
 vi.mock("@/lib/auth", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  useAuth: () => ({ user: null, loading: false, login: vi.fn(), register: vi.fn(), logout: vi.fn() }),
+  useAuth: () => ({ user: null, loading: false, login: vi.fn(), logout: vi.fn() }),
 }));
 vi.mock("@/lib/query-provider", () => ({
   QueryProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

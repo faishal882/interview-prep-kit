@@ -143,14 +143,14 @@ npm run web:install
 API_ORIGIN=http://127.0.0.1:8000 npm run web:dev   # web on :3000, proxies /api/* to the backend
 npm run dev                                          # backend on :8000 (FAKE_LLM=1 for offline)
 npm run web:test                                     # vitest unit + component tests, then the OpenAPI drift check
-npm run web:e2e                                      # register → create → watch → edit → regenerate (edit survives), FAKE_LLM mode
+npm run web:e2e                                      # login → create → watch → edit → regenerate (edit survives), FAKE_LLM mode
 ```
 
 The only frontend environment variable is `API_ORIGIN` (see `apps/web/.env.example`).
 
 ### Architecture
 
-- Routes: `/login`, `/register`, `/kits`, `/kits/new` (single | batch tabs),
+- Routes: `/login`, `/kits`, `/kits/new` (single | batch tabs),
   `/kits/{id}` (Overview, or the progress screen while generating),
   `/kits/{id}/role|questions|flashcards|schedule|practice`, `/kits/{id}/print`.
   Middleware redirects signed-out visits with a return-to address.

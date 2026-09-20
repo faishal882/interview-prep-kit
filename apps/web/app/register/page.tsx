@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { RegisterForm } from "@/components/auth-form";
+import { redirect } from "next/navigation";
 
+// Registration is closed: this app is login-only. Old links land on login.
 export default function RegisterPage() {
-  return (
-    <Suspense>
-      <RegisterForm />
-    </Suspense>
-  );
+  redirect("/login");
 }

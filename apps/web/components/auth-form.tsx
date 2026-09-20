@@ -14,8 +14,8 @@ const schema = z.object({
 
 type Fields = z.infer<typeof schema>;
 
-function AuthForm({ mode }: { mode: "login" | "register" }) {
-  const { login, register } = useAuth();
+export function LoginForm() {
+  const { login } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const expired = params.get("expired") === "1";
@@ -30,8 +30,7 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
   const onSubmit = async (v: Fields) => {
     setServerError("");
     try {
-      if (mode === "login") await login(v.email, v.password);
-      else await register(v.email, v.password);
+      await login(v.email, v.password);
       router.push(returnTo);
     } catch (e) {
       const err = e as ApiError;
@@ -42,8 +41,8 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <div className="hero-panel">
       <div className="hero-copy" style={{ padding: "48px 40px" }}>
-        <span className="eyebrow">{mode === "login" ? "Welcome back" : "Create account"}</span>
-        <h1 style={{ fontSize: "clamp(32px, 3vw, 44px)" }}>{mode === "login" ? "Log in" : "Register"}</h1>
+        <span className="eyebrow">Welcome back</span>
+        <h1 style={{ fontSize: "clamp(32px, 3vw, 44px)" }}>Log in</h1>
         {expired ? (
           <p role="alert" className="banner banner-warn" style={{ marginTop: 16 }}>
             Your login session expired. Sign in again.
@@ -65,7 +64,7 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
             <label htmlFor="password" className="field-label">
               Password
             </label>
-            <input id="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} {...field("password")} className="inset-input" />
+            <input id="password" type="password" autoComplete="current-password" {...field("password")} className="inset-input" />
             {errors.password ? (
               <p role="alert" className="field-error">
                 {errors.password.message}
@@ -78,18 +77,10 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
             </p>
           ) : null}
           <button type="submit" disabled={isSubmitting} className="button">
-            {mode === "login" ? "Log in" : "Create account"}
+            Log in
           </button>
         </form>
       </div>
     </div>
   );
-}
-
-export function LoginForm() {
-  return <AuthForm mode="login" />;
-}
-
-export function RegisterForm() {
-  return <AuthForm mode="register" />;
 }
