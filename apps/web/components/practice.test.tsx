@@ -22,6 +22,7 @@ vi.mock("@/lib/api-client", () => ({
     queue: vi.fn(async () => ({ queue: ["f1"] })),
     review: vi.fn(async () => ({ ok: true })),
     summary: vi.fn(async () => ({ total: 1, covered: 0, uncovered: 1 })),
+    weakSpots: vi.fn(async () => ({ spots: [] })),
   },
 }));
 
