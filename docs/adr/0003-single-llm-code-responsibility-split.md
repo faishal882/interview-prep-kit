@@ -1,0 +1,5 @@
+# One LLM writes, code arbitrates — and no AI framework
+
+Two actors with separate jobs: a single generation LLM (Gemini) writes prose (brief, questions, outlines, flashcards) and proposes classifications via structured prompts; plain code makes the decisions the brief reserves — schedule allocation and gap detection — verifies that every extracted Requirement's evidence appears verbatim in the JD, and applies deterministic heuristics (classification keywords, link ranking, hiring-signal flags, injection markers) that run with no model at all.
+
+An earlier revision used Jev (TypeSafe) as a second, decision-only model plus a Groq fallback provider. Removed: one key, one quota and one failure mode beat marginal decision quality, and every former Jev use (classification, link ranking, link verification, injection flagging) is covered by the LLM's structured output checked by heuristics, or by heuristics alone. We use no LangChain/LangGraph: the pipeline is a fixed sequence with one bounded loop, and explicit code makes visible what the model is not allowed to decide.

@@ -25,8 +25,8 @@ Hard constraints from the brief that shape everything below:
 | IaC | **Terraform**, flat, local state | One person, one env |
 | Deploy | Manual `deploy.sh` (ssh → git pull → compose up --build). No registry, no CI/CD | Simplicity |
 | Secrets | `.env` on the instance (chmod 600), never in git/Terraform | Simplicity |
-| Generation LLM | Gemini Flash-tier primary, Groq fallback, behind `LLMProvider` | Free tiers, native structured output |
-| Decision model | **Jev** (TypeSafe): classify / score / verify | Fast, cheap, typed, calibrated; cannot write text |
+| Generation LLM | Single Gemini Flash-tier model behind `LLMProvider` | Free tier, native structured output, one key and one quota to manage |
+| Typed decisions | The same LLM via structured prompts + deterministic heuristics | No second provider: fewer keys, fewer failure modes, decisions stay testable |
 | AI framework | **None** (no LangChain/LangGraph) | Fixed pipeline with one bounded loop; plain code makes "what the model doesn't decide" visible |
 | Progress | Polling `GET /jobs/{id}` | No idle-timeout failure modes through Vercel/CloudFront |
 | Observability | OpenTelemetry in code; **local demo only** (`--profile obs`); off in prod | Show the pipeline in the video without shipping infra |
@@ -40,10 +40,9 @@ Browser ─► Vercel (Next.js pages + middleware)
            CloudFront (HTTPS terminator for the API, no caching)
               ▼  (HTTP, port 80)
            EC2 ── docker compose
-              ├─ api (FastAPI) ─► mongo
-              │     ├─► Gemini / Groq        (text generation)
-              │     ├─► Jev                  (typed decisions)
-              │     └─► company sites, HN API (untrusted retrieval)
+               ├─ api (FastAPI) ─► mongo
+               │     └─► Gemini (generation + structured decisions)
+               │     └─► company sites, HN API (untrusted retrieval)
               └─ mongo (EBS volume)
 
 Local only:  api ── OTLP/HTTP ─► otel-lgtm (Grafana UI :3001)
@@ -56,7 +55,7 @@ Key property: **`pipeline.run(case, deps, on_event) -> Kit` is pure orchestratio
 
 **Frontend:** Next.js, TypeScript, Tailwind, shadcn/ui (Radix — keyboard/ARIA built in), TanStack Query, dnd-kit, react-hook-form + zod, `openapi-typescript` (types generated from the FastAPI OpenAPI schema), Vitest + Testing Library, one Playwright e2e.
 
-**Backend:** Python 3.12, FastAPI, Pydantic v2 + pydantic-settings, PyMongo async (`AsyncMongoClient`; Motor is deprecated), httpx, trafilatura + selectolax (clean text, link extraction), tenacity (retries), aiolimiter (rate limits), argon2-cffi, structlog, `google-genai`, `groq`, `typesafe-sdk`, OpenTelemetry API/SDK + instrumentations. Tests: pytest, pytest-asyncio, respx, hypothesis. Lint/type: ruff, pyright.
+**Backend:** Python 3.12, FastAPI, Pydantic v2 + pydantic-settings, PyMongo async (`AsyncMongoClient`; Motor is deprecated), httpx, trafilatura + selectolax (clean text, link extraction), tenacity (retries), aiolimiter (rate limits), argon2-cffi, structlog, `google-genai`, OpenTelemetry API/SDK + instrumentations. Tests: pytest, pytest-asyncio, respx, hypothesis. Lint/type: ruff, pyright.
 
 **Infra:** Terraform, EC2 (`t3.small` default; `instance_type` is a variable), Elastic IP, CloudFront, AWS Budgets alarm, Docker Compose, Caddy is **not** used.
 
@@ -115,9 +114,8 @@ apps/api/app/
 │  ├─ url_guard.py, safe_fetch.py, robots.py, rate_limiter.py
 │  ├─ cleaner.py, link_extractor.py, link_ranker.py, crawler.py
 │  └─ discussion/           # hn.py, search_api.py (optional), base.py
-├─ llm/                     # base.py, gemini.py, groq.py, router.py, retry.py,
-│                           # token_budget.py, structured.py, untrusted.py
-├─ jev/                     # client.py, questions.py (typed builders), fallback.py
+├─ llm/                     # base.py, gemini.py, router.py, retry.py,
+│                           # structured.py, untrusted.py
 ├─ scheduling/allocator.py  # PURE
 ├─ coverage/checker.py      # PURE
 ├─ validation/kit_validator.py
@@ -133,7 +131,7 @@ apps/api/app/
 tests/  unit/  property/  integration/  conftest.py
 ```
 
-Dependency rule: `domain`, `scheduling`, `coverage`, `validation`, `practice` import nothing from the rest. `pipeline` depends on interfaces (`LLMProvider`, `Fetcher`, `JevClient`), never on Mongo or FastAPI.
+Dependency rule: `domain`, `scheduling`, `coverage`, `validation`, `practice` import nothing from the rest. `pipeline` depends on interfaces (`LLMProvider`, `Fetcher`), never on Mongo or FastAPI.
 
 ### 6.2 Pipeline
 
@@ -162,12 +160,12 @@ Steps 2–3 (JD analysis) run concurrently with 4–5 (retrieval); they are inde
 
 | Step | Responsibility | Model | On failure |
 |---|---|---|---|
-| ingest | Normalise text, size limits, parse URL, thin-JD flag | code (+ Jev Score for "detail level") | Empty JD → `INVALID_INPUT`; bad URL → recorded warning, continue JD-only |
+| ingest | Normalise text, size limits, parse URL, thin-JD flag | code | Empty JD → `INVALID_INPUT`; bad URL → recorded warning, continue JD-only |
 | extract_requirements | LLM returns **atomic** Requirements `{text, evidence, section_heading}` (one claim, one priority; "X or Y" stays one; cap ~25). Explicit qualifications and responsibility lines stating a competency the candidate must demonstrate qualify; pure tasks stay in `responsibilities`; **no implied requirements**. **Code verifies `evidence` is a substring of the JD** (whitespace-normalised) and drops anything that isn't. Code assigns ids `r1…rn`, dedupes. Metadata never guessed: company = JD → homepage `og:site_name`/title → domain label; location = JD or `""`; seniority from a controlled vocabulary, else `unspecified` | LLM + code | Retry, one repair call; zero requirements → thin kit, not an error |
-| classify_requirements | `kind` (technical/behavioural/domain), `priority` (must/nice), `seniority`. State passed to Jev includes the requirement **and its section heading** ("Bonus points" vs "Required") | Jev; heuristic fallback (keywords: required/must/N+ years vs nice/bonus/preferred/plus) | Low Jev confidence → heuristic |
-| crawl_company | Section 6.3 | Jev for link ranking | Failed page skipped and recorded |
-| research_discussion | HN Algolia (free, keyless) + optional search API; Jev Noul filters "discusses interviewing at this company" | Jev | Empty → recorded "nothing found" |
-| analyze_hiring_signals | Noul flags over hiring pages + discussion: take-home? system-design round? coding round? behavioural round? | Jev | Missing → all flags `unknown`, generic categories |
+| classify_requirements | `kind` (technical/behavioural/domain), `priority` (must/nice), `seniority` from the requirement **and its section heading** ("Bonus points" vs "Required") | LLM-proposed values, heuristically checked (keywords: required/must/N+ years vs nice/bonus/preferred/plus); default priority `must` | Disagreement → heuristic |
+| crawl_company | Section 6.3 | heuristic link ranking | Failed page skipped and recorded |
+| research_discussion | HN Algolia (free, keyless) + optional search API | code | Empty → recorded "nothing found" |
+| analyze_hiring_signals | Keyword flags over hiring pages + discussion: take-home? system-design round? coding round? behavioural round? | code | Missing → all flags `unknown`, generic categories |
 | write_brief | Company summary/what_they_do/hiring_process **only from fetched text**. If nothing retrieved: **deterministic template, no LLM call** ("We could not retrieve …") | LLM or template | Template |
 | generate_questions | One call **per category** with its own prompt, requirement subset and hiring signals (section 6.4) | LLM | Category-level retry; failure recorded, other categories continue |
 | coverage_loop | Section 6.5 | code + LLM | Ships with `uncovered_requirement_ids` populated |
@@ -175,7 +173,7 @@ Steps 2–3 (JD analysis) run concurrently with 4–5 (retrieval); they are inde
 | build_schedule | Section 6.6 | **code only** | — |
 | assemble_kit | Pydantic + semantic validation (section 6.9) | code | Invalid → `KIT_INVALID` (see 6.10) |
 
-**Role of each model.** The LLM writes prose; Jev makes decisions; code makes the two decisions the brief reserves (schedule, coverage). Jev reads instructions literally, doesn't infer context, and doesn't defend against adversarial input — so it is used as a detector/classifier, never as the security boundary.
+**Role of the model.** The single LLM writes prose and proposes classifications via structured prompts; plain code makes the decisions the brief reserves — schedule allocation, gap detection — verifies that every extracted Requirement's evidence appears verbatim in the JD, and applies deterministic heuristics (classification keywords, link ranking, hiring-signal flags, injection markers) that are fully testable without a model.
 
 ### 6.3 Retrieval
 
@@ -183,8 +181,8 @@ Steps 2–3 (JD analysis) run concurrently with 4–5 (retrieval); they are inde
 - **Scope:** same registrable domain (subdomains allowed) plus a small allowlist of ATS hosts (greenhouse, lever, ashby, workable) followed one hop from a link on the company site. Localhost/IP hosts match on exact host + port. **Static HTML only** — no headless browser; JS-rendered pages are a documented limitation.
 - **`pages_used`** lists only pages whose cleaned text went into a prompt; failed/skipped fetches appear only in `research_log`.
 - **Public discussion:** HN Algolia (keyless), plus a search API if `SEARCH_API_KEY` is set; up to 3 threads fetched as JSON. Skipped (but recorded as `{queried: false, reason}`) when the company URL is private/loopback.
-- **Link ranking:** for each discovered link, Jev scores "likely describes how this company hires or what it does" from `{anchor text, URL path, surrounding text}`. Cheap, parallel, 70–500 ms. Fixed path lists (`/careers`) are **not** used as the mechanism; they may only seed nothing.
-- **Page typing:** Jev Choice — `hiring_process | about | product | engineering_blog | other`. Hiring/about pages are kept for the brief; others dropped.
+- **Link ranking:** each discovered link is scored heuristically on "likely describes how this company hires or what it does" from `{anchor text, URL path}` (career/job/hiring/interview/about terms win). Fixed path lists (`/careers`) are **not** used as the mechanism; they may only seed nothing.
+- **Page typing:** heuristic keyword match — `hiring_process | about | product | engineering_blog | other`. Hiring/about pages feed the brief; others are deprioritised.
 - **Cleaning:** trafilatura main-content extraction, capped per page and in total (token budget).
 - **`robots.txt`:** fetched once per host, honoured; disallowed URLs are skipped and recorded with reason `robots`.
 - **Failures:** timeouts, 4xx/5xx, wrong content type, oversize → retry with exponential backoff + jitter (max 3), then skip and record `{url, reason}` in `research_log`. **One dead source never fails the run.**
@@ -197,7 +195,7 @@ Categories: `technical`, `behavioural`, `system-design`, `company-fit`.
 
 Routing by requirement `kind`:
 
-- `technical` → `technical`; also `system-design` if Jev Noul says the requirement concerns design/architecture/scale.
+- `technical` → `technical`; also `system-design` if the requirement text concerns design/architecture/scale (keyword match).
 - `behavioural` → `behavioural`.
 - `domain` → `technical`; also `company-fit` when hiring/brief evidence exists.
 
@@ -205,14 +203,13 @@ Gating (to avoid inventing filler): a category with no routed requirements is **
 
 Hiring signals modify prompts: `has_take_home` → questions on scoping/trade-offs of a take-home; `has_system_design_round` → forces the system-design category on for eligible requirements.
 
-Each question also gets `difficulty` (Jev Score → 1–3 rounded) and, as an extension, `outline_points[]` (discrete checkable points; `answer_outline` remains the required prose field).
+Each question also gets `difficulty` (LLM-provided 1–3, clamped by code) and, as an extension, `outline_points[]` (discrete checkable points; `answer_outline` remains the required prose field).
 
 ### 6.5 Coverage loop (the second pass)
 
 ```
 coverage_map   = {req_id: [question ids]}          # from question.requirement_ids
-verified_links = drop links where Jev Noul("question tests requirement") < 0.3
-gaps           = all_req_ids − ⋃ verified_links.requirement_ids     # set difference, code
+gaps           = all_req_ids − ⋃ coverage_map.values()   # set difference, code
 blocking_gaps  = gaps ∩ must_ids
 ```
 
@@ -220,7 +217,7 @@ blocking_gaps  = gaps ∩ must_ids
 - A gap-fill round generates only for the gap ids, routed by `kind` as above, with existing prompts passed as an exclusion list.
 - **Stop when:** no gaps, or cap reached, or **no progress** (identical gap set two rounds running — the model can't or won't cover it).
 - **Why 3:** the first pass covers the bulk; the second targets what's left with a narrow prompt; a third is a last forced attempt for `must` gaps only. Beyond that, returns diminish and the token budget is better spent elsewhere. Anything still uncovered ships **honestly listed** rather than papered over.
-- Jev only *removes* dubious links (mislabelled `requirement_ids`). The gap decision itself is set arithmetic in code, as the brief requires.
+- The gap decision is pure set arithmetic in code, as the brief requires — no model call sits between a claimed link and the Gap list.
 
 ### 6.6 Schedule allocation (pure, `scheduling/allocator.py`)
 
@@ -269,20 +266,19 @@ Batch `status: "failed"` is reserved for cases where **no valid kit could be pro
 
 Batch performance: 2 cases concurrently, global LLM limiter shared, per-case deadline 240 s (5 cases ≈ 3 rounds ≤ 15 min worst case). On deadline, a valid partial kit is returned as `ok` with warnings; otherwise `TIMEOUT`.
 
-### 6.11 LLM layer
+### 6.11 LLM layer (single provider)
 
-- `LLMProvider` protocol: `generate_structured(prompt, schema) -> Model`. Implementations: Gemini, Groq. `router.py` tries in order.
-- **Rate limits:** token-bucket limiter per provider (RPM + TPM). On 429/5xx: honour `Retry-After`, else exponential backoff with jitter (base 2 s, cap 60 s, max 4 attempts), then fail over to the next provider.
-- **Structured output:** use native JSON-schema mode where available → Pydantic validate → **one** repair call including the validation error → else step failure.
+- `LLMProvider` protocol: `generate_structured(prompt, schema) -> Model`. One implementation: Gemini.
+- **Rate limits:** token-bucket limiter; on 429/5xx honour `Retry-After`, else exponential backoff with jitter (base 2 s, cap 60 s, max 4 attempts), then a recorded step failure. One provider means one quota to reason about.
+- **Structured output:** native JSON-schema mode → Pydantic validate → **one** repair call including the validation error → else step failure.
 - **Token budgeting:** page/JD text is truncated per prompt to a budget so no single call exceeds provider TPM.
-- Model names come from env (`GEMINI_MODEL`, `GROQ_MODEL`); pick the current Flash-tier / 70B-class models at build time.
-- Jev client wraps `typesafe-sdk`; every call has a heuristic/LLM fallback and `JEV_ENABLED=false` switches it off entirely.
+- Model name comes from env (`GEMINI_MODEL`); pick the current Flash-tier model at build time.
 
 ### 6.12 Security (kept proportionate)
 
 - **URL guard (`url_guard.py`):** http/https only; resolve DNS and reject private, loopback, link-local (incl. `169.254.169.254`) and reserved ranges; re-validate on every redirect hop (max 3). **Strict by default** (fail-safe if config is missing). The batch CLI entrypoint opts out explicitly (`ALLOW_PRIVATE_URLS=true`) because graders serve company sites from localhost; local dev sets `ENV=development`. Residual risk: DNS rebinding between check and connect (documented).
 - **Fetch limits:** content-type allowlist (`text/html`, `text/plain`, `application/xhtml+xml`), streamed size cap (2 MB), connect 5 s / total 15 s timeouts.
-- **Prompt injection:** JD and page text are wrapped in delimited blocks the prompt declares to be *data*; the LLM has no tools and its output is schema-validated; requirement `evidence` must exist in the JD; Jev Noul flags "text addresses an AI / contains instructions" → page is dropped and logged. Detection is a signal, not the boundary.
+- **Prompt injection:** JD and page text are wrapped in delimited blocks the prompt declares to be *data*; the LLM has no tools and its output is schema-validated; requirement `evidence` must exist in the JD; a small keyword marker list ("ignore previous instructions", …) flags instruction-style pages → dropped and logged. Detection is a signal, not the boundary.
 - **Auth:** argon2id; opaque 256-bit session token, only its SHA-256 stored in Mongo (`sessions`, TTL index, 7 days); cookie `httpOnly; Secure; SameSite=Lax`, first-party via the Vercel rewrite. Mutating requests require `Origin ∈ ALLOWED_ORIGINS`. In-memory login rate limit per IP+email. Every kit query is filtered by `user_id`; other users' kits return `404`.
 - **Secrets:** `.env` on the instance, gitignored. Nothing secret in Terraform.
 - Not doing (out of scope / accepted): email verification, password reset, roles, CloudFront→EC2 TLS, secret manager.
@@ -400,7 +396,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 npm run evaluate -- --input fi
 # Grafana → http://localhost:3001 → Explore → Tempo
 ```
 
-**Instrumentation:** auto for FastAPI, httpx, PyMongo. Custom spans: root per pipeline run (`case_id`, `kit_id`); child per step with attributes (`pages_fetched`, `coverage.pass`, `uncovered_count`); each crawl fetch (host, status, bytes, robots decision, skip reason); each LLM call (`gen_ai.*`: provider, model, input/output tokens, latency, retries, 429, fallback); each Jev call (question type, latency, confidence). Metrics: LLM tokens/requests by provider+outcome, rate-limit hits, pipeline duration/outcome, fetch outcomes, coverage passes, active jobs.
+**Instrumentation:** auto for FastAPI, httpx, PyMongo. Custom spans: root per pipeline run (`case_id`, `kit_id`); child per step with attributes (`pages_fetched`, `coverage.pass`, `uncovered_count`); each crawl fetch (host, status, bytes, robots decision, skip reason); each LLM call (`gen_ai.*`: model, input/output tokens, latency, retries, 429). Metrics: LLM tokens/requests by outcome, rate-limit hits, pipeline duration/outcome, fetch outcomes, coverage passes, active jobs.
 
 **Decisions:** background jobs start a **new root span with a span link** to the originating request (the request span ends long before the job); `trace_id` stored on the job doc. **Redaction:** spans carry lengths and hashes, never JD or page text (`DEBUG_CAPTURE_CONTENT=true` opts in locally). Logs: structlog JSON to stdout with trace/span ids, Docker log rotation on the instance.
 
@@ -438,15 +434,13 @@ infra/
 | `MONGODB_URI` | api | database |
 | `SESSION_SECRET` | api | signing/hashing key for sessions |
 | `ALLOWED_ORIGINS` | api | CSRF Origin check |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | api, CLI | primary generation — **the only required key** (missing → fail fast, `MISSING_CREDENTIALS`) |
-| `GROQ_API_KEY`, `GROQ_MODEL` | api, CLI | optional fallback generation |
-| `TYPESAFE_API_KEY`, `JEV_ENABLED` | api, CLI | optional Jev decisions; without it the LLM/heuristics do the work (logged, not an error). Jev overrides only at confidence ≥ 0.7 |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | api, CLI | generation + structured decisions — **the only required key** (missing → fail fast, `MISSING_CREDENTIALS`) |
 | `SEARCH_API_KEY` | api, CLI | optional public-discussion search |
 | `MAX_CRAWL_PAGES`, `CRAWL_DEPTH`, `MAX_CONCURRENT_RUNS` | api, CLI | budgets |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `DEBUG_CAPTURE_CONTENT` | api, CLI | local telemetry demo only |
 | `API_ORIGIN` | web (Vercel) | rewrite target |
 
-The CLI needs only the LLM/Jev keys. All documented in `.env.example`.
+The CLI needs only the Gemini key. All documented in `.env.example`.
 
 ## 12. Testing strategy
 
@@ -473,23 +467,22 @@ The CLI needs only the LLM/Jev keys. All documented in `.env.example`.
 ## 14. Creative feature: practice answer check
 
 **Problem:** candidates practise answers but can't tell if they're any good.
-**Feature:** in Practice, the user types an answer to a question. For each `outline_points[i]`, one Jev Noul ("the answer addresses: …") runs in parallel (<500 ms total) and returns a calibrated verdict → a checklist of covered / missing points. No extra LLM tokens.
-**Limits (stated in the UI):** Jev reads literally and won't credit implied points; it's a coverage check, not a quality judgment.
+**Feature:** in Practice, the user types an answer to a question. For each `outline_points[i]`, a literal word-overlap check runs against the answer and returns a checklist of covered / missing points. No extra LLM tokens, no second provider.
+**Limits (stated in the UI):** overlap is literal and won't credit implied points; it's a coverage check, not a quality judgment.
 
 ## 15. Risks and open items
 
 1. **FastAPI vs the brief.** The brief mandates `npm run evaluate` and says "JavaScript or TypeScript only" in §14, while §1 allows equivalent stacks with an explanation. Mitigation: root `package.json` wrapper + `npm run setup`, documented prominently. Residual risk: a grader on a machine without Python 3.12. **Recommend confirming with Trao in writing.**
-2. **Jev free tier unverified** (priced at $0.042/M input tokens). Everything degrades to heuristics/LLM with `JEV_ENABLED=false`.
-3. **Free-tier LLM limits change.** Provider abstraction + limiter + fallback; verify limits at build time.
-4. **Unreachable-company semantics** (6.10) — one-line switch if graders expect `COMPANY_UNREACHABLE`.
-5. **Single instance:** in-process jobs die with the process (recovery marks them retryable); Mongo backups are manual.
-6. **Known gaps (accepted):** DNS-rebinding window, CloudFront→EC2 plaintext hop, no secret manager, no CI.
+2. **Single-provider LLM limits change.** One quota to watch; backoff + recorded step failures; verify limits at build time.
+3. **Unreachable-company semantics** (6.10) — one-line switch if graders expect `COMPANY_UNREACHABLE`.
+4. **Single instance:** in-process jobs die with the process (recovery marks them retryable); Mongo backups are manual.
+5. **Known gaps (accepted):** DNS-rebinding window, CloudFront→EC2 plaintext hop, no secret manager, no CI.
 
 ## 16. Build order
 
 1. `domain/`, `scheduling/`, `coverage/`, `validation/`, `practice/` with tests (unit + property).
 2. Pipeline + `FakeLLM` + CLI + fixture sites; OTel spans added as steps are written.
-3. Real LLM/Jev adapters, crawler, discussion search.
+3. Real LLM adapter, crawler, discussion search.
 4. API: auth, jobs, kits, items, regeneration merge.
 5. Frontend: generation progress → builder → practice → answer check.
 6. Terraform, deploy, README, walkthrough video.

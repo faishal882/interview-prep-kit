@@ -8,8 +8,8 @@ Durable decisions that apply across all phases:
 
 - **Language/runtime**: Python 3.12 + FastAPI (ADR-0001). The mandated `npm run evaluate` is a thin wrapper over the Python batch runner; `npm run setup` performs the single documented install step.
 - **Pipeline contract**: the pipeline takes (Case, dependencies, progress callback) and returns a Kit plus a research log. It never persists and never imports the web layer. The web API, the job worker and the batch runner all call this one entry point.
-- **Responsibility split (ADR-0003)**: the LLM writes prose; Jev (optional) makes typed decisions; code decides schedule allocation, gap detection and evidence grounding. No AI orchestration framework.
-- **Credentials**: only `GEMINI_API_KEY` is required (missing → fail fast with `MISSING_CREDENTIALS`). Groq, Jev, a search API and a telemetry endpoint are optional and degrade silently (logged).
+- **Responsibility split (ADR-0003)**: the single LLM writes prose and proposes classifications via structured prompts; code decides schedule allocation, gap detection and evidence grounding, aided by deterministic heuristics. No AI orchestration framework.
+- **Credentials**: only `GEMINI_API_KEY` is required (missing → fail fast with `MISSING_CREDENTIALS`). A search API and a telemetry endpoint are optional and degrade silently (logged).
 - **Kit structure**: exactly Appendix A. Extensions are additive and optional: research log, the brief's hiring-process text, each Question's outline points. `kind` ∈ technical | behavioural | domain; `priority` ∈ must | nice; Question `category` ∈ technical | behavioural | system-design | company-fit; difficulty 1–3; minutes are integers.
 - **Requirement**: atomic claim, one priority, verbatim evidence verified against the JD, ids `r1…rn`, cap ≈ 25. Default priority `must`.
 - **Item state (ADR-0004)**: every editable item carries origin (generated | user), edited, pinned, revision, order key. Protected = user-written, edited or pinned. Metadata is stripped on export.
@@ -26,7 +26,7 @@ Durable decisions that apply across all phases:
 - **Schema (MongoDB)**: collections `users`, `sessions` (TTL), `kits`, `jobs`, `practice_progress`, `fetch_cache` (TTL). A Kit is one document: input, Kit content with per-item metadata, research log, section revision counters, status. In-memory repositories back the CLI and tests.
 - **Auth**: Argon2id; opaque session token stored only as a hash, server-side expiry; httpOnly + Secure + SameSite cookie; origin check on mutating requests; every Kit query filtered by owner; other users' Kits return 404.
 - **Jobs (ADR-0002)**: Mongo documents claimed atomically by an in-process worker; heartbeat; stale → requeued once, then failed retryable; one active job per Kit; bounded concurrency (default 2).
-- **Third-party boundaries**: Gemini (required) and Groq (optional) behind one structured-generation interface; Jev (optional) behind one typed-decision interface with a mandatory fallback per caller; company sites and Hacker News (Algolia) as untrusted retrieval; a Jev answer overrides only at confidence ≥ 0.7.
+- **Third-party boundaries**: one Gemini model behind the structured-generation interface; company sites and Hacker News (Algolia) as untrusted retrieval; heuristic keyword markers flag instruction-style pages for dropping (a signal, not the boundary).
 - **Security posture**: URL guard strict by default (the CLI opts out explicitly); allowlisted content types, size and time limits; fetched/pasted text framed as data; robots per RFC 9309.
 - **Batch contract**: input array of Cases; output `{version, generated_at, kits:[{id, status ok|failed, kit|null, error|null}]}`. `failed` only when no valid Kit could be produced (empty JD, no LLM available, Kit unassemblable, deadline hit before a valid Kit, missing credentials). An unreachable company is `ok` with the failure recorded.
 
@@ -57,7 +57,7 @@ The thinnest complete path: a repository scaffold with the root commands (`setup
 
 ### What to build
 
-The real structured-generation gateway (Gemini; optional Groq fallback) with rate limiting, backoff honouring provider hints, token budgeting and one repair attempt on invalid output. On top of it, requirement extraction: atomic Requirements with verbatim evidence checked in code, stable ids, dedupe, the cap, role metadata that is never guessed, heuristic kind/priority classification with `must` as default, and thin-description detection with an honest warning. The batch now emits real `role` content.
+The single structured-generation gateway (Gemini) with rate limiting, backoff honouring provider hints, token budgeting and one repair attempt on invalid output. On top of it, requirement extraction: atomic Requirements with verbatim evidence checked in code, stable ids, dedupe, the cap, role metadata that is never guessed, heuristic kind/priority classification with `must` as default, and thin-description detection with an honest warning. The batch now emits real `role` content.
 
 ### Acceptance criteria
 
@@ -67,7 +67,7 @@ The real structured-generation gateway (Gemini; optional Groq fallback) with rat
 - [ ] Unknown company/location/seniority are never invented (`""` / `unspecified`)
 - [ ] A two-line JD produces a thin Kit flagged as thin, with no invented Requirements
 - [ ] Invalid model JSON triggers exactly one repair attempt, then a recorded step failure
-- [ ] Rate-limit responses are retried with backoff and fall over to the fallback provider when configured
+- [ ] Rate-limit responses are retried with backoff honouring provider hints
 - [ ] Extraction, grounding and heuristic-classification tests pass (fake LLM)
 
 ---
@@ -133,23 +133,21 @@ The safe fetcher (strict-by-default URL guard with redirect re-validation, robot
 
 ---
 
-## Phase 6: Discussion, hiring signals and Jev
+## Phase 6: Discussion and hiring signals
 
 **User stories**: 36, 37, 43, 49, 92, 98, 99
 
 ### What to build
 
-Public-discussion research (Hacker News via its API, optional search API; skipped and recorded when the company URL is private) and the hiring-signal analyzer whose flags change which Questions are generated (a take-home or system-design round alters the Kit). Then the optional Jev gateway: better classification, link ranking and page typing; verification of claimed Question–Requirement links before Gaps are computed; injection-style text flagged and the page dropped and logged. Every use has a fallback; without a Jev key the pipeline behaves as before.
+Public-discussion research (Hacker News via its API, optional search API; skipped and recorded when the company URL is private) and the hiring-signal analyzer whose flags change which Questions are generated (a take-home or system-design round alters the Kit). Classification, link ranking and page typing are heuristic/LLM-driven with no second provider; injection-style text is flagged by keyword markers and the page dropped and logged.
 
 ### Acceptance criteria
 
 - [ ] "Nothing found" and "not queried (reason)" are both recorded honestly and reflected in the brief
 - [ ] A fixture site that publishes a take-home + system-design round yields a Kit that differs from one that says nothing
-- [ ] With no Jev key, the full pipeline still completes and logs the fallback
-- [ ] A Jev answer below 0.7 confidence does not override; disagreements are logged
-- [ ] A Question whose claimed link to a Requirement is rejected no longer counts as covering it, and the resulting Gap is filled
+- [ ] Coverage Gaps are pure set arithmetic in code with no model call in between
 - [ ] A fixture page containing "ignore previous instructions…" is dropped and does not influence output
-- [ ] Discussion, signal and fallback tests pass
+- [ ] Discussion, signal and injection-filter tests pass
 
 ---
 
@@ -274,14 +272,14 @@ Section regeneration as jobs: the brief (a proposal when edited or pinned), one 
 
 ### What to build
 
-Practice queue ordering by the confidence-weighted prioritizer (unseen before mastered, recency decay, must boost), recording 1–3 confidence reviews, coverage summary overall/per Category/per Requirement, progress stored independently of Kit content so regeneration never wipes it, and the answer check: typed answer versus a Question's outline points, judged per point via Jev with a fallback, returning covered/missing points.
+Practice queue ordering by the confidence-weighted prioritizer (unseen before mastered, recency decay, must boost), recording 1–3 confidence reviews, coverage summary overall/per Category/per Requirement, progress stored independently of Kit content so regeneration never wipes it, and the answer check: typed answer versus a Question's outline points, judged per point by literal word-overlap, returning covered/missing points.
 
 ### Acceptance criteria
 
 - [ ] Queue order follows the documented formula; unseen cards precede mastered ones
 - [ ] Recording a review updates covered status and the summary
 - [ ] Regenerating a Category leaves practice progress for surviving cards intact
-- [ ] The answer check returns per-point verdicts, works without a Jev key via the fallback, and states its literal-match limits
+- [ ] The answer check returns per-point verdicts via literal overlap and states its limits
 - [ ] Prioritizer tests pass
 
 ---
@@ -292,12 +290,12 @@ Practice queue ordering by the confidence-weighted prioritizer (unseen before ma
 
 ### What to build
 
-Optional tracing, metrics and structured logs: a root span per pipeline run with a child per step, spans for each fetch, LLM call and Jev call with token/latency/retry/rate-limit detail, background jobs linked to the originating request, no-op unless an endpoint is configured, and content-free by default. A local compose profile with a bundled backend for demos.
+Optional tracing, metrics and structured logs: a root span per pipeline run with a child per step, spans for each fetch and LLM call with token/latency/retry/rate-limit detail, background jobs linked to the originating request, no-op unless an endpoint is configured, and content-free by default. A local compose profile with a bundled backend for demos.
 
 ### Acceptance criteria
 
 - [ ] With no endpoint configured, nothing is exported and behaviour is unchanged, including for the batch command
-- [ ] With the local profile running, a batch run shows a trace per Case with steps, fetches, LLM and Jev calls, retries and coverage Passes
+- [ ] With the local profile running, a batch run shows a trace per Case with steps, fetches, LLM calls, retries and coverage Passes
 - [ ] Spans and logs contain sizes and hashes, never JD or page text, unless explicitly opted in
 - [ ] An unreachable telemetry endpoint never slows or fails a run
 

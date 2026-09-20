@@ -126,7 +126,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 89. As an assessor, I want the command to work from a clean clone after one documented install step, needing only environment variables documented in the example file.
 90. As an assessor, I want the batch to work against company sites served from a local address, so that I can use fixture sites.
 91. As an assessor, I want a missing required credential to fail immediately with a clear message, so that I don't wait on a doomed run.
-92. As an assessor, I want the pipeline to run correctly without the optional Jev key, so that I don't need extra accounts.
+92. As an assessor, I want the pipeline to need only one LLM key, so that I don't need extra accounts.
 
 ### Robustness and safety
 93. As a candidate, I want a rate-limited or briefly failing LLM provider to be retried with backoff and, if configured, failed over to another, so that a transient problem doesn't fail my Kit.
@@ -141,7 +141,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 102. As an operator, I want at most one active generation per Kit and a bounded number of concurrent generations, so that a double-click or a burst cannot overrun quotas.
 
 ### Observability
-103. As a developer, I want each pipeline run, step, fetch, LLM call and Jev call traced with token, latency, retry and rate-limit detail, so that I can see how a run behaved.
+103. As a developer, I want each pipeline run, step, fetch and LLM call traced with token, latency, retry and rate-limit detail, so that I can see how a run behaved.
 104. As a developer, I want that telemetry to be off unless an endpoint is configured and never to slow or fail a run, so that the batch command needs no extra setup.
 105. As a developer, I want job description and page text never recorded in telemetry, so that user content isn't leaked.
 
@@ -152,7 +152,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 - **Kit model and validator.** The canonical structure (Appendix A) as strict types plus a semantic validator: unique ids, all references resolve, schedule length equals days requested, integer minutes, difficulty within 1–3, no must Requirement missing from both coverage and the uncovered list. Interface: build/validate a Kit; export the exact-structure projection.
 - **Item state and merge.** Per-item metadata (origin, edited, pinned, revision, order key). Interface: "given current items, freshly generated items and a job-start snapshot, produce the merged items", encoding the protected-item rules of ADR-0004. Also fractional ordering keys.
 - **Requirement extractor.** Interface: JD → atomic Requirements + role metadata. Guarantees every Requirement carries verbatim evidence verified against the JD, assigns stable ids, dedupes, caps at ~25, and never guesses metadata.
-- **Requirement classifier.** Interface: Requirement (+ its section heading) → kind, priority; seniority. Uses Jev when available and confident, otherwise LLM/heuristics; default priority is `must`.
+- **Requirement classifier.** Interface: Requirement (+ its section heading) → kind, priority; seniority. LLM-proposed values checked by deterministic heuristics; default priority is `must`.
 - **Safe fetcher.** URL validation (strict by default, redirect re-validation), robots handling (RFC 9309 semantics), content-type/size/time limits, per-host rate limiting, backoff, and a fetch cache. Interface: fetch(url) → cleaned page or a recorded skip reason.
 - **Crawler.** Interface: (company URL, budget) → ranked, retrieved pages + a record of skips. Priority-queue traversal driven by link ranking; same registrable domain plus an ATS allowlist one hop; relative links; static HTML only.
 - **Discussion researcher.** Interface: company name → discussion excerpts or an explicit "not found / not queried, reason".
@@ -163,8 +163,7 @@ The same pipeline is exposed through a command-line batch entry point that reads
 - **Coverage loop.** Interface: (Kit draft) → Kit with Gaps filled or honestly listed. Maximum three Passes; stops on no gaps, on the cap, or on no progress; the last Pass targets `must` Gaps only.
 - **Scheduler.** Pure and deterministic. Interface: (Questions, Requirements, days) → Schedule with exactly `days` days. Weights by difficulty and priority; front-loaded triangular allocation when Questions ≥ days; Review days when fewer; integer-minute estimates by Category and difficulty; overload warning above 180 minutes/day average.
 - **Practice prioritizer.** Pure. Interface: (cards, review history, now) → ordered queue. Confidence-weighted with recency decay, unseen-before-mastered, must-boost.
-- **LLM gateway.** Interface: structured generation against a schema. Provider fallback chain, rate-limit and token budgeting, backoff honouring provider hints, one repair attempt on invalid output. Only Gemini is required.
-- **Jev gateway.** Interface: typed Choice/Score/Noul questions over a state. Optional; every caller supplies a fallback; a Jev answer overrides only at confidence ≥ 0.7; disagreements logged.
+- **LLM gateway.** Interface: structured generation against a schema. Single Gemini model, rate-limit and token budgeting, backoff honouring provider hints, one repair attempt on invalid output. Only Gemini is required.
 - **Pipeline orchestrator.** Interface: (Case, dependencies, progress callback) → Kit + research log. Pure orchestration with no persistence; JD analysis runs concurrently with retrieval; question generation waits for both. Also provides Section regeneration.
 - **Job queue.** Mongo-backed claim/heartbeat/requeue-once (ADR-0002); one active job per Kit; bounded concurrency; step-level progress records.
 - **Auth and sessions.** Argon2id passwords; opaque random session tokens stored only as hashes with server-side expiry; httpOnly, secure, same-site cookies; origin check on mutating requests; login throttling; ownership enforced on every Kit query.
@@ -176,14 +175,14 @@ The same pipeline is exposed through a command-line batch entry point that reads
 ### Key behavioural decisions
 
 - Requirement = atomic claim (see `CONTEXT.md`); responsibilities become Requirements only when they state a competency the candidate must demonstrate; no implied Requirements.
-- The LLM writes, Jev decides, code arbitrates; no AI orchestration framework (ADR-0003).
+- The single LLM writes and proposes classifications; code arbitrates; no AI orchestration framework (ADR-0003).
 - Protected items and atomic regeneration (ADR-0004). Brief regeneration on an edited brief returns a proposal. The Schedule is derived: it is marked stale when Questions change, user edits are kept until an explicit rebuild, and deleted question ids are removed immediately.
 - Coverage: all Requirements are subject to Gap reporting; retries prioritise `must`; three Passes maximum. Deleting a covering Question or editing a Requirement never blocks and never triggers automatic generation.
 - Unreachable/invalid/404 company site → `ok` with recorded failure and a deterministic honest brief. `failed` is reserved for: empty description, no LLM available and nothing generated, Kit could not be validly assembled, deadline hit before a valid Kit existed, missing required credentials.
 - Caps: 30 Questions, 20 Flashcards, ~25 Requirements, 12 crawled pages, depth 2, 10 cases per web batch upload.
 - Duplicate key = user + normalised JD + normalised URL + days; only ready/generating Kits dedupe; `force_new` overrides.
-- Security: URL guard strict by default (CLI opts out explicitly); allowlisted content types; size and time limits; untrusted text framed as data; Jev detection is a signal, not a boundary.
-- Required config: only the Gemini key; Groq, Jev, search API and telemetry endpoint are optional.
+- Security: URL guard strict by default (CLI opts out explicitly); allowlisted content types; size and time limits; untrusted text framed as data; keyword markers flag instruction-style pages for dropping.
+- Required config: only the Gemini key; search API and telemetry endpoint are optional.
 
 ### API contracts (routes)
 
@@ -226,6 +225,6 @@ Input: array of Cases. Output: version, generated-at, and one entry per Case wit
 
 ## Further Notes
 
-- **Risks:** Python backend versus the brief's JS/TS wording (ADR-0001); Jev's free-tier terms are unverified (hence optional); free-tier LLM limits are volatile (fallback, limiter, verify at build time); the Appendix B example shows an unreachable company as a failure while this design records it as `ok` — a one-line change if needed.
+- **Risks:** Python backend versus the brief's JS/TS wording (ADR-0001); single-provider LLM limits are volatile (backoff, limiter, verify at build time); the Appendix B example shows an unreachable company as a failure while this design records it as `ok` — a one-line change if needed.
 - **Ambiguity resolved by judgment:** thin descriptions and unknown companies yield honest, small output rather than padded output; this is a deliberate reading of the brief's "invent nothing" rule.
 - **Time budget:** the brief expects 2–3 days of focused work; the backend is the bulk of the automated score (55 points), so it is built first and the batch command is a first-class deliverable, not an afterthought.
