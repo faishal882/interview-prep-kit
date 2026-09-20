@@ -1,30 +1,11 @@
 @import "tailwindcss";
+@import "./tailorec.css";
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@media print {
-  header nav, .no-print {
-    display: none !important;
-  }
-  main {
-    max-width: 100% !important;
-  }
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
