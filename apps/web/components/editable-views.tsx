@@ -10,6 +10,7 @@ import { OriginBadge } from "@/components/badges";
 import { EmptyState } from "@/components/feedback";
 import { MoveMenu, MoveToDayMenu } from "@/components/move-menu";
 import { SortableCategory } from "@/components/sortable-questions";
+import { RegenCategoryButton, RegenScheduleButton, BriefRegen, GenerateForGapButton } from "@/components/regen";
 import type { Category } from "@/lib/types";
 
 function useRefresh(kitId: string) {
@@ -73,6 +74,9 @@ export function EditableQuestions({ kitId }: { kitId: string }) {
               <summary className="cursor-pointer font-medium">
                 {c} ({list.length})
               </summary>
+              <div className="mt-1">
+                <RegenCategoryButton kitId={kitId} category={c} />
+              </div>
               {list.length === 0 ? (
                 <p className="mt-2 text-sm text-neutral-500">No Questions in this Category — no Requirements routed here, so nothing was padded.</p>
               ) : (
@@ -149,6 +153,7 @@ export function EditableRole({ kitId }: { kitId: string }) {
                     ) : (
                       <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs dark:bg-green-900">{n} Questions</span>
                     )}
+                    {gap ? <GenerateForGapButton kitId={kitId} requirementId={r.id} /> : null}
                     <span className="ml-auto flex gap-1">
                       <PinToggle kitId={kitId} collection="requirements" itemId={r.id} pinned={r._meta?.pinned} />
                       <DeleteItemButton kitId={kitId} collection="requirements" itemId={r.id} label={`Delete Requirement ${r.id}`} />
@@ -228,6 +233,7 @@ export function EditableSchedule({ kitId }: { kitId: string }) {
         <KitNav kitId={kitId} />
         <h1 className="text-xl font-semibold">Schedule</h1>
         {data?.schedule_stale ? <StaleBanner /> : null}
+        <RegenScheduleButton kitId={kitId} />
         <ol className="space-y-2">
           {days.map((d) => (
             <li key={d.day} className="rounded border p-3 text-sm">
@@ -263,6 +269,9 @@ export function EditableBrief({ kitId }: { kitId: string }) {
         <EditableField collection="brief" itemId="brief" field="summary" value={brief.summary ?? ""} label="Summary" multiline />
         <EditableField collection="brief" itemId="brief" field="what_they_do" value={brief.what_they_do ?? ""} label="What they do" multiline />
         <EditableField collection="brief" itemId="brief" field="hiring_process" value={brief.hiring_process ?? ""} label="Hiring process" multiline />
+        <div className="mt-2">
+          <BriefRegen kitId={kitId} />
+        </div>
       </section>
     </EditingProvider>
   );
