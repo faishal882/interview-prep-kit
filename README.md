@@ -183,12 +183,22 @@ The only frontend environment variable is `API_ORIGIN` (see `apps/web/.env.examp
 
 ### Design decisions
 
+- Visual system: the Tailorec tactile violet neumorphic system (`apps/web/app/tailorec.css`,
+  tokens mirrored from its DESIGN.md) — blue-gray `#e0e5ec` canvas, graphite ink,
+  signal violet `#6c63ff` for action/selection only, pale `#eeedff` eyebrows, teal
+  success, risk-red danger; Plus Jakarta Sans display + DM Sans body; raised/inset
+  surfaces; 4/8/12/16px radii with pills reserved for status; 1280px framed narrative;
+  raised nav-shell with mobile menu; dark closing footer strip. The reference ships
+  no dark theme, so the app is light-only (an intentional deviation from the earlier
+  "follow the system" line).
 - Light/dark follows the system (no toggle); reduced motion respected; skip
   link, live-region announcements, keyboard-first flows (Space/1/2/3/Backspace
   in Drills, keyboard + Move-menu reordering).
 - Practice: Drills of 10 from a queue snapshot; reviews save optimistically;
   weak-spots report ranks by Confidence + coverage + priority with reasons;
-  print view is a one-page summary via a print stylesheet.
+  print view is a one-page summary via a print stylesheet. Kit view navigation
+  uses the reference tabs pattern (violet active); Category groups use its
+  native details/summary disclosure pattern; focus is the reference 3px violet outline.
 - Stretch keyword self-check (`/practice/check`) is labelled
   "keyword match only" with its limits stated.
 
