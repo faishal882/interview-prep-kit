@@ -62,3 +62,43 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
         DB.jobs[job["id"]] = job
         return {"ok": True, "job_id": job["id"]}
     raise KitError(Codes.NOT_FOUND, "unknown section")
+
+
+@router.patch("/api/kits/{kit_id}/schedule/days/{day}")
+async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Depends(current_user)) -> dict:
+    """Edit a day's focus text (manual Schedule edits preserved until rebuild)."""
+    k = get_kit_or_404(kit_id, user["id"])
+    kit = k.get("kit")
+    if not kit:
+        raise KitError(Codes.NOT_FOUND, "kit not ready")
+    days = (kit.get("schedule") or {}).get("days", [])
+    target = next((d for d in days if d.get("day") == day), None)
+    if not target:
+        raise KitError(Codes.NOT_FOUND, "day not found")
+    if "focus" in body:
+        target["focus"] = str(body["focus"])
+    if "question_ids" in body:
+        valid = {q["id"] for q in kit.get("questions", [])}
+        target["question_ids"] = [q for q in body["question_ids"] if q in valid]
+    return target
+
+
+@router.post("/api/kits/{kit_id}/schedule/move")
+async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
+    """Move a Question to another day on the Schedule."""
+    k = get_kit_or_404(kit_id, user["id"])
+    kit = k.get("kit")
+    if not kit:
+        raise KitError(Codes.NOT_FOUND, "kit not ready")
+    qid, to_day = body.get("question_id"), body.get("to_day")
+    days = (kit.get("schedule") or {}).get("days", [])
+    if not any(d.get("day") == to_day for d in days):
+        raise KitError(Codes.NOT_FOUND, "day not found")
+    if not any(q.get("id") == qid for q in kit.get("questions", [])):
+        raise KitError(Codes.NOT_FOUND, "question not found")
+    for d in days:
+        d["question_ids"] = [q for q in d.get("question_ids", []) if q != qid]
+    target = next(d for d in days if d.get("day") == to_day)
+    if qid not in target["question_ids"]:
+        target["question_ids"].append(qid)
+    return {"ok": True, "day": to_day}
