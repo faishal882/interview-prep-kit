@@ -1,0 +1,15 @@
+"use client";
+import { use } from "react";
+import { useKit } from "@/lib/kit-cache";
+import { ErrorState, Skeleton } from "@/components/feedback";
+import { formatWithRef } from "@/lib/errors";
+import { PracticeView } from "@/components/practice";
+
+export default function PracticePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { isLoading, isError, error, refetch } = useKit(id);
+  if (isLoading) return <Skeleton label="Loading Practice" />;
+  if (isError)
+    return <ErrorState message={formatWithRef(error)} referenceId={(error as { referenceId?: string })?.referenceId} onRetry={() => void refetch()} />;
+  return <PracticeView kitId={id} />;
+}
