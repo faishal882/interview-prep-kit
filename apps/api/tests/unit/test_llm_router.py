@@ -1,4 +1,4 @@
-"""LLM router: retry + fallback + exactly-one-repair tests (fake providers, no network)."""
+"""Single-LLM generation: retry + exactly-one-repair tests (fake providers, no network)."""
 import asyncio
 
 from app.llm.base import ProviderError
@@ -23,24 +23,18 @@ class Dead:
     name = "dead"
 
     async def generate_structured(self, prompt, schema):
-        raise ProviderError("down", status=503)
+        raise ProviderError("bad request", status=400)
 
 
 def test_rate_limit_retried_with_backoff():
     f = Flaky(2)
-    out, who = asyncio.run(generate([f], "REQUIREMENTS", {"type": "object", "required": [], "properties": {}}))
+    out, who = asyncio.run(generate(f, "REQUIREMENTS", {"type": "object", "required": [], "properties": {}}))
     assert who == "flaky" and f.calls == 3
 
 
-def test_falls_over_to_fallback_provider():
-    dead, good = Dead(), Flaky(0)
-    out, who = asyncio.run(generate([dead, good], "REQUIREMENTS", {"type": "object", "required": [], "properties": {}}))
-    assert who == "flaky"
-
-
-def test_all_exhausted_raises():
+def test_provider_failure_raises():
     try:
-        asyncio.run(generate([Dead()], "x", {"type": "object", "required": [], "properties": {}}))
+        asyncio.run(generate(Dead(), "x", {"type": "object", "required": [], "properties": {}}))
     except ProviderError:
         return
     raise AssertionError("should have raised")
