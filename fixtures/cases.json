@@ -1,0 +1,32 @@
+[
+  {
+    "id": "case-01",
+    "jd": "Senior Backend Engineer\nWe are looking for a Senior Backend Engineer with 5+ years with Python and FastAPI. Required: PostgreSQL and Docker. Bonus points for experience with Kubernetes. You will mentor junior engineers and collaborate with product.",
+    "company_url": "http://localhost:8099/acme/",
+    "days": 5
+  },
+  {
+    "id": "case-02",
+    "jd": "Frontend Developer\nRequired: React, TypeScript and Node.js; PostgreSQL a plus; Go or Rust a plus.",
+    "company_url": "http://localhost:8099/nohiring/",
+    "days": 3
+  },
+  {
+    "id": "case-03",
+    "jd": "Hi",
+    "company_url": "http://localhost:8099/acme/",
+    "days": 1
+  },
+  {
+    "id": "case-04",
+    "jd": "Backend Engineer\nRequired: 3+ years with Go. Must know system design and scaling distributed systems.",
+    "company_url": "http://localhost:8099/does-not-exist/",
+    "days": 7
+  },
+  {
+    "id": "case-05",
+    "jd": "Data Engineer\nRequired: Python and SQL. Preferred: Airflow. You will build pipelines.",
+    "company_url": "not-a-url",
+    "days": 2
+  }
+]
