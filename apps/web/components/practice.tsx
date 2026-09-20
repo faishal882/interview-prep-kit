@@ -6,6 +6,7 @@ import { useKit } from "@/lib/kit-cache";
 import { KitNav } from "@/components/kit-overview";
 import { EmptyState, LiveRegion } from "@/components/feedback";
 import { startDrill, reveal, rate, undoLast, isFinished, weakCardIds, type Confidence, type DrillState } from "@/lib/drill";
+import { WeakSpotsReport } from "@/components/weak-spots";
 
 // Drill: queue snapshot at start; space reveals; 1/2/3 rate and advance;
 // Backspace undoes; end summary offers weak-card re-drill; reviews save optimistically.
@@ -93,6 +94,8 @@ export function PracticeView({ kitId }: { kitId: string }) {
         <button onClick={() => begin(queue ?? cards.map((c) => c.id))} className="rounded bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-black">
           Start Drill (10 cards, least sure first)
         </button>
+        <CoveragePanel kitId={kitId} />
+        <WeakSpotsReport kitId={kitId} />
       </div>
     );
   }
