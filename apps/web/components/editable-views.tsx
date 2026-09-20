@@ -8,6 +8,8 @@ import { KitNav } from "@/components/kit-overview";
 import { EditableField, DeleteItemButton, PinToggle, GapBanner, StaleBanner } from "@/components/editable";
 import { OriginBadge } from "@/components/badges";
 import { EmptyState } from "@/components/feedback";
+import { MoveMenu, MoveToDayMenu } from "@/components/move-menu";
+import { SortableCategory } from "@/components/sortable-questions";
 import type { Category } from "@/lib/types";
 
 function useRefresh(kitId: string) {
@@ -74,11 +76,15 @@ export function EditableQuestions({ kitId }: { kitId: string }) {
               {list.length === 0 ? (
                 <p className="mt-2 text-sm text-neutral-500">No Questions in this Category — no Requirements routed here, so nothing was padded.</p>
               ) : (
-                <ul className="mt-2 space-y-3">
-                  {list.map((q) => (
-                    <li key={q.id} className="rounded border p-2 text-sm">
-                      <div className="flex items-center gap-2">
+                <SortableCategory
+                  kitId={kitId}
+                  category={c}
+                  items={list}
+                  render={(q, siblings) => (
+                    <div className="rounded border p-2 text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
                         <OriginBadge meta={q._meta} />
+                        <MoveMenu kitId={kitId} question={q} siblings={siblings} />
                         <span className="ml-auto flex gap-1">
                           <PinToggle kitId={kitId} collection="questions" itemId={q.id} pinned={q._meta?.pinned} />
                           <DeleteItemButton kitId={kitId} collection="questions" itemId={q.id} label={`Delete Question ${q.id}`} />
@@ -86,9 +92,9 @@ export function EditableQuestions({ kitId }: { kitId: string }) {
                       </div>
                       <EditableField collection="questions" itemId={q.id} field="prompt" value={q.prompt} label="Prompt" multiline />
                       <EditableField collection="questions" itemId={q.id} field="answer_outline" value={q.answer_outline} label="Answer outline" multiline />
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  )}
+                />
               )}
             </details>
           );
@@ -231,6 +237,13 @@ export function EditableSchedule({ kitId }: { kitId: string }) {
               </div>
               <EditableField collection="day" itemId={String(d.day)} field="focus" value={d.focus} label="Day focus" />
               <p className="mt-1 text-xs text-neutral-500">Questions: {d.question_ids.join(", ") || "—"}</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {d.question_ids.map((qid) => (
+                  <span key={qid} className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs">
+                    {qid} <MoveToDayMenu kitId={kitId} questionId={qid} />
+                  </span>
+                ))}
+              </div>
             </li>
           ))}
         </ol>
