@@ -6,6 +6,10 @@
     "setup": "python3 -m venv apps/api/.venv && apps/api/.venv/bin/pip install -e \"apps/api[test]\"",
     "test": "apps/api/.venv/bin/python -m pytest apps/api/tests -q",
     "evaluate": "node scripts/py.mjs -m app.cli.evaluate",
-    "dev": "apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload"
+    "dev": "apps/api/.venv/bin/uvicorn app.main:app --app-dir apps/api --reload",
+    "web:install": "npm --prefix apps/web install",
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:test": "npm --prefix apps/web test",
+    "web:e2e": "npm --prefix apps/web run e2e"
   }
 }

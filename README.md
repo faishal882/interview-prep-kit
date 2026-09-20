@@ -130,3 +130,71 @@ then step failure. Rate limits → backoff with jitter, then recorded step failu
   redirect re-validation. CloudFront→EC2 hop and secret manager out of scope.
 - Appendix B's example shows unreachable company as failure; this build records it as `ok`
   per the FAQ ("a missing hiring page is not a failure") — a one-line switch if needed.
+
+## Frontend (web app)
+
+Next.js (App Router, strict TypeScript) + Tailwind CSS v4 + TanStack Query.
+Source: `apps/web`. Design: `docs/prd-frontend.md`. Plan: `plans/frontend.md`.
+
+### Setup
+
+```bash
+npm run web:install
+API_ORIGIN=http://127.0.0.1:8000 npm run web:dev   # web on :3000, proxies /api/* to the backend
+npm run dev                                          # backend on :8000 (FAKE_LLM=1 for offline)
+npm run web:test                                     # vitest unit + component tests, then the OpenAPI drift check
+npm run web:e2e                                      # register → create → watch → edit → regenerate (edit survives), FAKE_LLM mode
+```
+
+The only frontend environment variable is `API_ORIGIN` (see `apps/web/.env.example`).
+
+### Architecture
+
+- Routes: `/login`, `/register`, `/kits`, `/kits/new` (single | batch tabs),
+  `/kits/{id}` (Overview, or the progress screen while generating),
+  `/kits/{id}/role|questions|flashcards|schedule|practice`, `/kits/{id}/print`.
+  Middleware redirects signed-out visits with a return-to address.
+- Data path: all Kit data is fetched client-side through the TanStack query
+  cache (one entry per Kit, one for the list); the cache is the single source
+  of truth; every mutation is optimistic with rollback.
+- Same-origin API: the browser only talks to the web app; `/api/*` is proxied
+  to the backend so cookies are first-party. Contract: types are generated from
+  the committed `apps/api/openapi.json` (`npm run generate:types` in
+  `apps/web`); `npm run web:test` fails on drift.
+- Error model: the uniform envelope is decoded once (`lib/errors.ts`) into
+  typed errors; every surface shows message + reference id; a 401 raises one
+  "session expired" flow back to login.
+
+### State model for edits and regeneration
+
+- Every item carries `{origin, edited, pinned, rev, order}`; badges derive
+  from it; protected = user-written, edited or pinned.
+- Editing (`lib/mutation-queue.ts` + `lib/editing.tsx`): autosave per field on
+  blur or ~600 ms idle; optimistic apply; writes serialised per item with
+  per-item Saving/Saved/Failed + retry; revision conflicts offer Keep mine /
+  Use latest with the draft preserved. Reorder/move computes the backend's
+  fractional order key locally (`lib/ordering.ts` mirrors
+  `app/domain/ordering.py`), confirms with the server, rolls back on refusal.
+- Regeneration (`lib/regen-controller.ts`): confirmation counts
+  replaced/protected from metadata; protected items stay editable mid-run;
+  new items badged; an edited/pinned brief yields a Proposal (Accept/Reject);
+  Schedule rebuild warns that manual edits are replaced; Gaps offer
+  "Generate a Question for this" (targeted endpoint, nothing else touched).
+
+### Design decisions
+
+- Light/dark follows the system (no toggle); reduced motion respected; skip
+  link, live-region announcements, keyboard-first flows (Space/1/2/3/Backspace
+  in Drills, keyboard + Move-menu reordering).
+- Practice: Drills of 10 from a queue snapshot; reviews save optimistically;
+  weak-spots report ranks by Confidence + coverage + priority with reasons;
+  print view is a one-page summary via a print stylesheet.
+- Stretch keyword self-check (`/practice/check`) is labelled
+  "keyword match only" with its limits stated.
+
+### Limitations
+
+- No undo for deletes (no restore endpoint); no multi-tab live sync beyond
+  per-item conflict handling; cross-Category drag is via the Move menu, not
+  between columns; the fake-LLM server mode yields thin Kits, so the e2e adds
+  items by hand like the backend's own API tests do.
