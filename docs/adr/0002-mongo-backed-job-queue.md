@@ -1,0 +1,3 @@
+# Generation jobs are Mongo documents claimed by a worker loop
+
+Generation takes ~90 seconds, can fail halfway and can be triggered twice, so it cannot live inside a request. We store jobs as documents and have an in-process worker claim them atomically (`find_one_and_update`); a stale heartbeat requeues the job once, then fails it as retryable. Plain in-process tasks were rejected because a restart would silently lose work; a broker (Redis/SQS) was rejected as needless infrastructure for a single instance. The batch CLI bypasses the queue and calls the pipeline directly. Consequence: we assume a single API instance and progress is read by polling.
