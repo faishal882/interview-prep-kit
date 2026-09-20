@@ -13,12 +13,12 @@ import type { Question } from "@/lib/types";
 function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   return (
-    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes}>
-      <div className="flex items-center gap-1">
-        <button {...listeners} aria-label={`Drag Question ${id} to reorder`} title="Drag to reorder (long-press on touch)" className="cursor-grab rounded border px-1.5 py-0.5 text-xs no-print">
+    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, listStyle: "none" }} {...attributes}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <button {...listeners} aria-label={`Drag Question ${id} to reorder`} title="Drag to reorder (long-press on touch)" className="button button-secondary button-small no-print" style={{ minWidth: 34, padding: "4px 8px", cursor: "grab" }}>
           ⠿
         </button>
-        <div className="min-w-0 flex-1">{children}</div>
+        <div style={{ minWidth: 0, flex: 1 }}>{children}</div>
       </div>
     </li>
   );
@@ -67,7 +67,7 @@ export function SortableCategory({ kitId, category, items, render }: { kitId: st
       <LiveRegion message={live} />
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => void onDragEnd(e)}>
         <SortableContext items={sorted.map((q) => q.id)} strategy={verticalListSortingStrategy}>
-          <ul className="mt-2 space-y-3">
+          <ul style={{ marginTop: 12, display: "grid", gap: 12, padding: 0 }}>
             {sorted.map((q) => (
               <SortableItem key={q.id} id={q.id}>
                 {render(q, sorted)}

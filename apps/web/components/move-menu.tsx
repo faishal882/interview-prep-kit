@@ -58,12 +58,12 @@ export function MoveMenu({
 
   const idx = siblings.findIndex((s) => s.id === question.id);
   return (
-    <span className="inline-flex items-center gap-1">
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <LiveRegion message={live} />
-      <button aria-label={`Move ${question.id} up`} disabled={idx <= 0} onClick={() => void apply(idx > 1 ? siblings[idx - 2].id : null)} className="rounded border px-1.5 py-0.5 text-xs disabled:opacity-40">
+      <button aria-label={`Move ${question.id} up`} disabled={idx <= 0} onClick={() => void apply(idx > 1 ? siblings[idx - 2].id : null)} className="button button-secondary button-small" style={{ minWidth: 34, padding: "4px 8px" }}>
         ↑
       </button>
-      <button aria-label={`Move ${question.id} down`} disabled={idx < 0 || idx >= siblings.length - 1} onClick={() => void apply(siblings[idx + 1].id)} className="rounded border px-1.5 py-0.5 text-xs disabled:opacity-40">
+      <button aria-label={`Move ${question.id} down`} disabled={idx < 0 || idx >= siblings.length - 1} onClick={() => void apply(siblings[idx + 1].id)} className="button button-secondary button-small" style={{ minWidth: 34, padding: "4px 8px" }}>
         ↓
       </button>
       <label className="sr-only" htmlFor={`move-${question.id}`}>
@@ -74,7 +74,8 @@ export function MoveMenu({
         aria-label={`Move ${question.id} to Category`}
         value={question.category}
         onChange={(e) => void apply(null, e.target.value as Category)}
-        className="rounded border px-1 py-0.5 text-xs"
+        className="inset-select"
+        style={{ width: "auto", padding: "6px 10px", fontSize: 13 }}
       >
         {cats.map((c) => (
           <option key={c} value={c}>
@@ -112,12 +113,12 @@ export function MoveToDayMenu({ kitId, questionId }: { kitId: string; questionId
   };
   if (days.length === 0) return null;
   return (
-    <span className="inline-flex items-center gap-1">
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       <LiveRegion message={live} />
       <label className="sr-only" htmlFor={`moveday-${questionId}`}>
         Move to day
       </label>
-      <select id={`moveday-${questionId}`} aria-label="Move to day" defaultValue="" onChange={(e) => e.target.value && void move(Number(e.target.value))} className="rounded border px-1 py-0.5 text-xs">
+      <select id={`moveday-${questionId}`} aria-label="Move to day" defaultValue="" onChange={(e) => e.target.value && void move(Number(e.target.value))} className="inset-select" style={{ width: "auto", padding: "4px 8px", fontSize: 12 }}>
         <option value="">Move to day…</option>
         {days.map((d) => (
           <option key={d.day} value={d.day}>

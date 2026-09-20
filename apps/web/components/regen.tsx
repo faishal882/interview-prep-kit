@@ -45,12 +45,12 @@ export function RegenCategoryButton({ kitId, category }: { kitId: string; catego
   return (
     <span>
       <LiveRegion message={live} />
-      <button onClick={() => setOpen(true)} disabled={running} className="rounded border px-2 py-1 text-xs no-print" aria-label={`Regenerate ${category}`}>
+      <button onClick={() => setOpen(true)} disabled={running} className="button button-secondary button-small no-print" aria-label={`Regenerate ${category}`}>
         {running ? "Regenerating…" : `Regenerate ${category}`}
       </button>
-      {freshIds.length > 0 ? <span className="ml-1 text-xs text-green-700">{freshIds.length} new</span> : null}
+      {freshIds.length > 0 ? <span className="pill pill-teal" style={{ marginLeft: 8 }}>{freshIds.length} new</span> : null}
       {error ? (
-        <span role="alert" className="ml-1 text-xs text-red-700">
+        <span role="alert" className="field-error" style={{ marginLeft: 8 }}>
           {error}
         </span>
       ) : null}
@@ -63,7 +63,7 @@ export function RegenCategoryButton({ kitId, category }: { kitId: string; catego
         onCancel={() => setOpen(false)}
       />
       {running ? (
-        <span aria-label="Regeneration in progress" className="ml-2 text-xs text-neutral-500">
+        <span aria-label="Regeneration in progress" className="pill" style={{ marginLeft: 8 }}>
           Replacing {plan.replacedCount}…
         </span>
       ) : null}
@@ -74,7 +74,7 @@ export function RegenCategoryButton({ kitId, category }: { kitId: string; catego
 export function NewBadge({ ids, id }: { ids: string[]; id: string }) {
   if (!ids.includes(id)) return null;
   return (
-    <span aria-label="New after regeneration" className="rounded bg-green-100 px-1.5 py-0.5 text-xs dark:bg-green-900">
+    <span aria-label="New after regeneration" className="pill pill-teal">
       New
     </span>
   );
@@ -93,7 +93,7 @@ export function RegenScheduleButton({ kitId }: { kitId: string }) {
   return (
     <span>
       <LiveRegion message={live} />
-      <button onClick={() => setOpen(true)} className="rounded border px-2 py-1 text-xs no-print">
+      <button onClick={() => setOpen(true)} className="button button-secondary button-small no-print">
         Rebuild Schedule
       </button>
       <ConfirmDialog
@@ -131,18 +131,19 @@ export function BriefRegen({ kitId }: { kitId: string }) {
   return (
     <div className="no-print">
       <LiveRegion message={live} />
-      <button onClick={() => void run()} className="rounded border px-2 py-1 text-xs">
+      <button onClick={() => void run()} className="button button-secondary button-small">
         Regenerate brief
       </button>
       {proposal ? (
-        <div role="group" aria-label="Brief Proposal" className="mt-2 rounded border p-3 text-sm">
-          <h3 className="font-medium">Proposed brief</h3>
-          <p className="mt-1">{proposal.summary}</p>
-          <div className="mt-2 flex gap-2">
-            <button onClick={() => void accept()} className="rounded border px-2 py-1 text-xs">
+        <div role="group" aria-label="Brief Proposal" className="neu-card-flat" style={{ marginTop: 12 }}>
+          <span className="eyebrow">Proposal</span>
+          <h3 className="kit-display" style={{ fontSize: 16, marginTop: 8 }}>Proposed brief</h3>
+          <p style={{ marginTop: 8 }}>{proposal.summary}</p>
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button onClick={() => void accept()} className="button button-small">
               Accept
             </button>
-            <button onClick={() => void reject()} className="rounded border px-2 py-1 text-xs">
+            <button onClick={() => void reject()} className="button button-secondary button-small">
               Reject
             </button>
           </div>
@@ -163,7 +164,7 @@ export function GenerateForGapButton({ kitId, requirementId }: { kitId: string; 
   return (
     <span>
       <LiveRegion message={live} />
-      <button onClick={() => void run()} className="rounded border px-2 py-0.5 text-xs">
+      <button onClick={() => void run()} className="button button-secondary button-small">
         Generate a Question for this
       </button>
     </span>
