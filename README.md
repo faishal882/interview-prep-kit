@@ -36,10 +36,16 @@ via `apps/api/export_schema.py`).
 
 ## LLM provider and model
 
-Single `GEMINI_MODEL` (default `gemini-2.0-flash`). Native JSON-schema mode → Pydantic validate → exactly
-**one** repair call → recorded step failure. Backoff with jitter honouring `Retry-After`
-(max 4 attempts), then a recorded step failure — one quota to reason about. Page/JD text is
-truncated to a per-prompt token budget.
+Single `GEMINI_MODEL` (default `gemini-2.0-flash`). One shared pooled client sends the
+key in the `x-goog-api-key` header (never in URLs or errors). A process-wide
+request/token limiter is shared by every concurrent run. Retries happen only for
+genuine provider conditions (429 honouring `Retry-After`, 5xx with bounded backoff,
+network failures) — programming errors fail immediately. Truncated output is retried
+once with a smaller prompt; output is deep-validated against its schema with exactly
+**one** repair call that enjoys the same retry protection; usage and latency are
+recorded per call. Page/JD text is truncated to a per-prompt token budget. The scripted
+fake model is available only through the explicit `FAKE_LLM` setting — with no key and
+no explicit fake, the batch command and the server fail fast with `MISSING_CREDENTIALS`.
 
 ## Architecture
 

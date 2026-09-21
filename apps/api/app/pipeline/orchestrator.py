@@ -107,6 +107,7 @@ async def _run_case_inner(
     http_client = deps.get("http_client")
     skip_retrieval: bool = bool(deps.get("skip_retrieval"))
     step_timeout = float(deps.get("step_timeout_s", 60))
+    gateway_limiter = deps.get("limiter")
     if holder is None:
         holder = {}
 
@@ -136,7 +137,8 @@ async def _run_case_inner(
 
     async def _gen(prompt: str, schema: dict) -> dict:
         try:
-            raw, _prov = await asyncio.wait_for(llm_generate(llm, prompt, schema), timeout=step_timeout)
+            raw, _ = await asyncio.wait_for(
+                llm_generate(llm, prompt, schema, limiter=gateway_limiter), timeout=step_timeout)
             return raw
         except asyncio.TimeoutError as exc:
             raise KitError(Codes.TIMEOUT, "model step deadline exceeded") from exc

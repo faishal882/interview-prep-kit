@@ -77,14 +77,19 @@ def _run_pipeline_sync(kit_id: str, job_id: str, case: dict, deps: dict) -> None
 
 def _deps_for_server() -> dict:
     import os
-    from app.llm.fake import FakeLLM
     s = get_settings()
-    if os.environ.get("FAKE_LLM") or s.FAKE_LLM or not (s.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")):
+    explicit_fake = os.environ.get("FAKE_LLM") or s.FAKE_LLM
+    if explicit_fake:
+        from app.llm.fake import FakeLLM
         llm = FakeLLM()
         return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
                 "skip_retrieval": True, "max_pages": 4, "depth": 1}
+    key = os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY
+    if not key:
+        # never silently serve fake kits: fail fast without a model key
+        raise KitError(Codes.MISSING_CREDENTIALS, "Missing GEMINI_API_KEY")
     from app.llm.gemini import GeminiProvider
-    llm = GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL)
+    llm = GeminiProvider(key, s.GEMINI_MODEL)
     return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
             "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
 
