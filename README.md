@@ -106,10 +106,13 @@ export so output matches Appendix A exactly.
 
 Pure, deterministic (`scheduling/allocator.py`): weight `w = difficulty × (must 2 | nice 1)`,
 sorted desc (ties: Category order, then id). Minutes by `(Category, difficulty)` lookup.
-Questions ≥ days: earlier days get the extra questions (hard/high-priority first, last day
-lightest). Questions < days: one per day in weight order, then spaced-review days repeating
-top-weight Questions. 1 day: everything, honest minutes. Zero Questions: N empty days with
-explanatory focus. Overload warning above 180 min/day average. Property-tested.
+With at least as many Questions as days, the weight-ordered list is split into contiguous
+minute-balanced days (day totals differ by at most the largest single Question's minutes),
+so harder material never lands later. Questions < days: one per day in weight order, then
+Review days repeating top-weight Questions in expanding cycles (first review always the
+top Question). 1 day: everything, honest minutes. Zero Questions: N empty days with
+explanatory focus. Overload warning above 180 min/day average. Property-tested
+(balance, expanding review spacing, invariants).
 
 ## Second pass (coverage loop)
 
