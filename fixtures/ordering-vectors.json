@@ -1,0 +1,162 @@
+[
+  {
+    "name": "back-inserts",
+    "ops": [
+      {
+        "after": null,
+        "key": "h"
+      },
+      {
+        "after": "h",
+        "key": "qi"
+      },
+      {
+        "after": "qi",
+        "key": "v9"
+      },
+      {
+        "after": "v9",
+        "key": "xmi"
+      },
+      {
+        "after": "xmi",
+        "key": "yt9"
+      }
+    ]
+  },
+  {
+    "name": "front-inserts",
+    "ops": [
+      {
+        "before": "HEAD",
+        "key": "h"
+      },
+      {
+        "before": "HEAD",
+        "key": "8i"
+      },
+      {
+        "before": "HEAD",
+        "key": "49"
+      },
+      {
+        "before": "HEAD",
+        "key": "24i"
+      },
+      {
+        "before": "HEAD",
+        "key": "129"
+      }
+    ]
+  },
+  {
+    "name": "bisections",
+    "ops": [
+      {
+        "a": "h",
+        "b": "i",
+        "key": "hi"
+      },
+      {
+        "a": "hi",
+        "b": "i",
+        "key": "hr"
+      },
+      {
+        "a": "hi",
+        "b": "hr",
+        "key": "hmi"
+      },
+      {
+        "a": "hmi",
+        "b": "hr",
+        "key": "hor"
+      },
+      {
+        "a": "hmi",
+        "b": "hor",
+        "key": "hnmi"
+      },
+      {
+        "a": "hmi",
+        "b": "hnmi",
+        "key": "hn29"
+      }
+    ]
+  },
+  {
+    "name": "legacy-neighbours",
+    "ops": [
+      {
+        "a": "a0",
+        "b": "a1",
+        "key": "a0i"
+      },
+      {
+        "a": null,
+        "b": "a0",
+        "key": "5"
+      },
+      {
+        "a": "a2",
+        "b": null,
+        "key": "n1"
+      }
+    ]
+  },
+  {
+    "name": "rebalance-40",
+    "count": 40,
+    "keys": [
+      "0v",
+      "1r",
+      "2m",
+      "3i",
+      "4e",
+      "59",
+      "65",
+      "70",
+      "7w",
+      "8s",
+      "9n",
+      "aj",
+      "be",
+      "ca",
+      "d6",
+      "e1",
+      "ex",
+      "fs",
+      "go",
+      "hk",
+      "if",
+      "jb",
+      "k7",
+      "l2",
+      "ly",
+      "mt",
+      "np",
+      "ol",
+      "pg",
+      "qc",
+      "r7",
+      "s3",
+      "sz",
+      "tu",
+      "uq",
+      "vl",
+      "wh",
+      "xd",
+      "y8",
+      "z4"
+    ]
+  },
+  {
+    "name": "rebalance-3",
+    "count": 3,
+    "keys": [
+      "9",
+      "i",
+      "r"
+    ]
+  }
+]
