@@ -118,6 +118,19 @@ async def test_jobs_single_active_per_kit(store):
     assert await store.jobs.list_for_kit("k1") == []
 
 
+async def test_claim_next_is_atomic_oldest_first_and_excludable(store):
+    await store.jobs.create({"id": "c1", "kit_id": "k1", "status": "pending", "created_at": 3.0,
+                             "heartbeat": 0, "attempts": 0, "steps": [], "error": None, "retryable": False})
+    await store.jobs.create({"id": "c2", "kit_id": "k2", "status": "pending", "created_at": 1.0,
+                             "heartbeat": 0, "attempts": 0, "steps": [], "error": None, "retryable": False})
+    first = await store.jobs.claim_next(exclude=("c2",))
+    assert first is not None and first["id"] == "c1" and first["status"] == "running"
+    second = await store.jobs.claim_next()
+    assert second is not None and second["id"] == "c2"
+    assert await store.jobs.claim_next() is None
+    assert await store.jobs.running_for_user("") == 0
+
+
 async def test_practice_reviews_and_kit_delete(store):
     assert await store.practice.reviews("k1:f1") == []
     await store.practice.append_review("k1:f1", {"confidence": 2, "at": 1.0})

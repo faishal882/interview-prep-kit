@@ -94,7 +94,6 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
   a deterministic honest brief ("We could not retrieve …", no LLM call).
 
 ## Step sequencing and responsibilities
-
 `ingest` (normalise, thin-JD flag) → `extract_requirements` ∥ `crawl_company` ∥
 `research_discussion` (independent, concurrent) → `classify` (kind/priority/seniority) +
 `analyze_hiring_signals` → `write_brief` (only from fetched text) → `generate_questions`
@@ -145,6 +144,15 @@ better spent elsewhere.
 is judged covered/missing by literal word-overlap. Solves "I practised but can't tell if
 my answer was any good" with zero extra LLM tokens. UI states its limits: literal reading,
 coverage check not quality judgment.
+
+## Generation jobs
+
+Jobs are documents (`generation` and regeneration kinds) claimed atomically from the
+database — oldest pending first — by a worker loop with enforced concurrency (default 2)
+and per-user limits (default 1 concurrent generation; over-budget jobs stay queued).
+A recovery pass runs continuously: a stale heartbeat requeues the job once, then fails it
+retryable. Per-Step (60 s) and overall (180 s) deadlines bound every run, plus a job-level
+backstop; a retried generation reuses already-cached pages instead of re-fetching.
 
 ## Edge cases
 
