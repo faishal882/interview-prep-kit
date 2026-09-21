@@ -282,6 +282,9 @@ class MongoStore:
         await self._client.admin.command("ping")
         await ensure_indexes(self._db)
 
+    async def ping(self) -> None:
+        await self._client.admin.command("ping")
+
     async def shutdown(self) -> None:
         if self._own_client:
             self._client.close()

@@ -33,7 +33,9 @@ class OkOut(BaseModel):
 
 
 class HealthOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
     ok: bool = True
+    problems: list[str] | None = None
 
 
 class KitCreateOut(BaseModel):

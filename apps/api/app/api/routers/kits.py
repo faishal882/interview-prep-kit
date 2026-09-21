@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from app.api.deps import current_user, get_kit_or_404
-from app.api.schemas.responses import (BatchOut, ExportOut, HealthOut, JobOut, KitCreateOut, KitDocOut, KitListOut, OkOut)
+from app.api.schemas.responses import (BatchOut, ExportOut, JobOut, KitCreateOut, KitDocOut, KitListOut, OkOut)
 from app.config import get_settings
 from app.domain.errors import Codes, KitError
 from app.jobs.runner import new_job
@@ -222,6 +222,3 @@ async def batch_upload(body: list[BatchEntry], background: BackgroundTasks, user
     return {"accepted": accepted, "rejected": rejected}
 
 
-@router.get("/api/health", response_model=HealthOut)
-async def health() -> dict:
-    return {"ok": True}

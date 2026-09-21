@@ -1,15 +1,21 @@
 """FastAPI app factory."""
 from __future__ import annotations
 
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import check_origin
-from app.api.errors import envelope, kit_error_handler, unhandled_handler, validation_handler
-from app.api.routers import auth, items, kits, practice, sections
+from app.api.errors import kit_error_handler, unhandled_handler, validation_handler
+from app.api.routers import auth, health, items, kits, practice, sections
 from app.domain.errors import KitError
+from app.observability import (
+    configure_logging,
+    get_logger,
+    set_request_id,
+    setup as setup_otel,
+)
 
 
 @asynccontextmanager
@@ -21,7 +27,9 @@ async def lifespan(app: FastAPI):
     from app.llm.router import configure_shared_limiter
     from app.persistence.store import get_store
 
+    configure_logging()
     settings = get_settings()
+    setup_otel(settings)
     if settings.ENV == "production":
         problems = validate_production(settings)
         if problems:
@@ -58,7 +66,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def origin_middleware(request, call_next):
-        from app.domain.errors import Codes, KitError as KE
+        from app.domain.errors import KitError as KE
         try:
             check_origin(request)
         except KE as ke:
@@ -82,6 +90,39 @@ def create_app() -> FastAPI:
                                 content=env("PAYLOAD_TOO_LARGE", "request body too large"))
         return await call_next(request)
 
+    # Outermost: assign request id before any other middleware so errors correlate.
+    @app.middleware("http")
+    async def request_id_middleware(request, call_next):
+        from app.observability import context as obs_ctx
+        obs_ctx.clear()
+        incoming = request.headers.get("x-request-id") or request.headers.get("x-correlation-id")
+        rid = set_request_id(incoming.strip() if incoming else None)
+        request.state.request_id = rid
+        log = get_logger("trao.http")
+        t0 = time.monotonic()
+        response = None
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            status = getattr(response, "status_code", 500) if response is not None else 500
+            duration_ms = round((time.monotonic() - t0) * 1000, 2)
+            record = log.makeRecord(
+                log.name, 20, "(middleware)", 0,
+                "%s %s -> %s",
+                (request.method, request.url.path, status),
+                None,
+            )
+            record.method = request.method
+            record.path = request.url.path
+            record.status = status
+            record.duration_ms = duration_ms
+            record.event = "http_request"
+            log.handle(record)
+            if response is not None:
+                response.headers["X-Request-Id"] = rid
+
+    app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(kits.router)
     app.include_router(items.router)

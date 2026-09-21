@@ -241,5 +241,8 @@ class MemoryStore:
     async def startup(self) -> None:
         return None
 
+    async def ping(self) -> None:
+        return None
+
     async def shutdown(self) -> None:
         return None
