@@ -7,11 +7,13 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.items import ScheduleDayPatch, ScheduleMove
 from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
 from app.domain.merge import merge_category
 from app.jobs.runner import new_job
 from app.persistence.store import get_store
+from app.scheduling.allocator import day_minutes
 
 router = APIRouter()
 
@@ -128,6 +130,7 @@ async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict 
 @router.patch("/api/kits/{kit_id}/schedule/days/{day}")
 async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Depends(current_user)) -> dict:
     """Edit a day's focus text (manual Schedule edits preserved until rebuild)."""
+    data = ScheduleDayPatch(**body)
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
@@ -136,11 +139,15 @@ async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Dep
     target = next((d for d in days if d.get("day") == day), None)
     if not target:
         raise KitError(Codes.NOT_FOUND, "day not found")
-    if "focus" in body:
-        target["focus"] = str(body["focus"])
-    if "question_ids" in body:
+    if data.focus is not None:
+        target["focus"] = data.focus
+    if data.question_ids is not None:
         valid = {q["id"] for q in kit.get("questions", [])}
-        target["question_ids"] = [q for q in body["question_ids"] if q in valid]
+        for qid in data.question_ids:
+            if qid not in valid:
+                raise KitError(Codes.INVALID_INPUT, f"unknown question reference: {qid}")
+        target["question_ids"] = list(data.question_ids)
+        target["minutes"] = day_minutes(target["question_ids"], kit.get("questions", []))
     await get_store().kits.save(k)
     return target
 
@@ -148,11 +155,12 @@ async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Dep
 @router.post("/api/kits/{kit_id}/schedule/move")
 async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
     """Move a Question to another day on the Schedule."""
+    data = ScheduleMove(**body)
+    qid, to_day = data.question_id, data.to_day
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
-    qid, to_day = body.get("question_id"), body.get("to_day")
     days = (kit.get("schedule") or {}).get("days", [])
     if not any(d.get("day") == to_day for d in days):
         raise KitError(Codes.NOT_FOUND, "day not found")
@@ -163,5 +171,7 @@ async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(c
     target = next(d for d in days if d.get("day") == to_day)
     if qid not in target["question_ids"]:
         target["question_ids"].append(qid)
+    for d in days:
+        d["minutes"] = day_minutes(d.get("question_ids", []), kit.get("questions", []))
     await get_store().kits.save(k)
     return {"ok": True, "day": to_day}

@@ -35,6 +35,12 @@ def _prune(pairs: set[tuple[int, int]]) -> set[tuple[int, int]]:
     return out
 
 
+def day_minutes(question_ids: list[str], questions: list[dict]) -> int:
+    """Minutes for a day as the sum of its Questions' minutes (unknown ids count 0)."""
+    table = {q["id"]: MINUTES.get((q.get("category"), q.get("difficulty", 1)), 10) for q in questions}
+    return sum(table.get(qid, 0) for qid in question_ids)
+
+
 def _focus(day_no: int, q: dict, req_text: dict[str, str], review: bool = False) -> str:
     tag = "review: " if review else ""
     src = req_text.get((q.get("requirement_ids") or [""])[0], "") or q.get("prompt", "")

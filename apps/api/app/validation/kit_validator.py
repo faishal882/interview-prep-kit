@@ -30,6 +30,12 @@ def validate_kit(kit: dict) -> list[str]:
             d = q.get("difficulty")
             if not isinstance(d, int) or isinstance(d, bool) or not (1 <= d <= 3):
                 errors.append(f"bad difficulty in {q.get('id')}: {d!r}")
+        for f in flashcards:
+            if not isinstance(f, dict):
+                continue
+            for rid in f.get("requirement_ids", []) or []:
+                if rid not in req_set:
+                    errors.append(f"dangling requirement reference: {rid} in {f.get('id')}")
 
         schedule = kit.get("schedule", {})
         days = schedule.get("days", [])
@@ -39,6 +45,15 @@ def validate_kit(kit: dict) -> list[str]:
                 f"schedule length {len(days)} != days_available {days_available}"
             )
         q_set = set(q_ids)
+        try:
+            from app.scheduling.allocator import day_minutes
+            for day in days:
+                if not isinstance(day, dict):
+                    continue
+                if day.get("minutes") != day_minutes(day.get("question_ids", []), questions):
+                    errors.append(f"day {day.get('day')} minutes do not match its questions")
+        except Exception:
+            pass
         for day in days:
             if not isinstance(day, dict):
                 continue

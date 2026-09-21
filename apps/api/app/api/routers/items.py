@@ -1,33 +1,69 @@
-"""Item editing: create/patch/delete + reorder + coverage recompute + stale schedule."""
+"""Item editing: typed schemas, server ids, revision enforcement, integrity."""
 from __future__ import annotations
 
 import uuid
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.items import (
+    BriefPatch,
+    FlashcardCreate,
+    FlashcardPatch,
+    QuestionCreate,
+    QuestionPatch,
+    ReorderBodyStrict,
+    RequirementCreate,
+    RequirementPatch,
+)
 from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
 from app.domain.ordering import FIRST_KEY, key_between, needs_rebalance, rebalance
 from app.persistence.store import get_store
+from app.scheduling.allocator import day_minutes
 
 router = APIRouter()
-
-COLLECTIONS = {"questions": "questions", "flashcards": "flashcards", "requirements": "requirements"}
 
 
 def _meta_new(origin: str) -> dict:
     return {"origin": origin, "edited": False, "pinned": False, "rev": 1, "order": "a0", "gen_run": None}
 
 
-def _recompute(kit_doc: dict) -> None:
+def _brief_meta() -> dict:
+    return {"origin": "generated", "edited": False, "pinned": False, "rev": 0}
+
+
+def _recompute(kit_doc: dict, *, schedule_affecting: bool) -> None:
     kit = kit_doc.get("kit") or {}
     reqs = (kit.get("role") or {}).get("requirements", [])
     gaps = compute_gaps([r["id"] for r in reqs], kit.get("questions", []))
     kit.setdefault("coverage", {})["uncovered_requirement_ids"] = gaps
-    # mark schedule stale when questions/requirements changed
-    kit_doc["schedule_stale"] = True
+    if schedule_affecting:
+        kit_doc["schedule_stale"] = True
+
+
+def _req_ids(kit: dict) -> set[str]:
+    return {r["id"] for r in (kit.get("role") or {}).get("requirements", [])}
+
+
+def _check_refs(rids: list[str], valid: set[str]) -> None:
+    for rid in rids:
+        if rid not in valid:
+            raise KitError(Codes.INVALID_INPUT, f"unknown requirement reference: {rid}")
+
+
+def _strip_refs(kit: dict, rid: str) -> list[str]:
+    """Remove a deleted requirement everywhere; return questions left uncovered."""
+    for q in kit.get("questions", []):
+        q["requirement_ids"] = [r for r in q.get("requirement_ids", []) if r != rid]
+    for f in kit.get("flashcards", []):
+        f["requirement_ids"] = [r for r in (f.get("requirement_ids") or []) if r != rid]
+    return [q["id"] for q in kit.get("questions", []) if not q.get("requirement_ids")]
+
+
+def _fix_minutes(kit: dict) -> None:
+    for day in (kit.get("schedule") or {}).get("days", []):
+        day["minutes"] = day_minutes(day.get("question_ids", []), kit.get("questions", []))
 
 
 @router.post("/api/kits/{kit_id}/{collection}")
@@ -40,23 +76,28 @@ async def create_item(kit_id: str, collection: str, body: dict, user: dict = Dep
         raise KitError(Codes.INVALID_INPUT, "use patch for brief")
     if collection == "schedule":
         raise KitError(Codes.INVALID_INPUT, "use schedule endpoints")
-    if collection not in ("questions", "flashcards", "requirements"):
-        raise KitError(Codes.NOT_FOUND, "unknown collection")
-    item = dict(body)
-    item["id"] = item.get("id") or f"{collection[0]}{uuid.uuid4().hex[:6]}"
-    item["_meta"] = _meta_new("user")
     if collection == "questions":
-        # assign order key at end
+        data = QuestionCreate(**body)
+        _check_refs(data.requirement_ids, _req_ids(kit))
+        item = {"id": f"q{uuid.uuid4().hex[:6]}", **data.model_dump(), "_meta": _meta_new("user")}
         existing = kit["questions"]
         last = existing[-1].get("_meta", {}).get("order") if existing else None
         item["_meta"]["order"] = key_between(last, None)
         kit["questions"].append(item)
-        # strip deleted refs n/a; strip nothing
+        _recompute(k, schedule_affecting=True)
     elif collection == "flashcards":
+        data = FlashcardCreate(**body)
+        _check_refs(data.requirement_ids, _req_ids(kit))
+        item = {"id": f"f{uuid.uuid4().hex[:6]}", **data.model_dump(), "_meta": _meta_new("user")}
         kit["flashcards"].append(item)
-    else:
+        _recompute(k, schedule_affecting=False)
+    elif collection == "requirements":
+        data = RequirementCreate(**body)
+        item = {"id": f"r{uuid.uuid4().hex[:6]}", **data.model_dump(), "_meta": _meta_new("user")}
         kit["role"]["requirements"].append(item)
-    _recompute(k)
+        _recompute(k, schedule_affecting=True)
+    else:
+        raise KitError(Codes.NOT_FOUND, "unknown collection")
     await get_store().kits.save(k)
     return item
 
@@ -68,35 +109,58 @@ async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, use
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
     if collection == "brief":
+        data = BriefPatch(**body)
+        meta = kit.setdefault("_brief_meta", _brief_meta())
+        if data.rev != meta.get("rev", 0):
+            raise KitError(Codes.CONFLICT, "stale revision; refetch")
         brief = kit.get("company_brief", {})
-        brief.update({kk: vv for kk, vv in body.items() if kk in ("summary", "what_they_do", "hiring_process")})
-        kit.setdefault("_brief_meta", {"rev": 0})["rev"] += 1
-        kit["_brief_meta"]["edited"] = True
+        changed = False
+        for field in ("summary", "what_they_do", "hiring_process"):
+            value = getattr(data, field)
+            if value is not None:
+                brief[field] = value
+                changed = True
+        if data.pinned is not None:
+            meta["pinned"] = data.pinned
+        if changed:
+            meta["edited"] = True
+        meta["rev"] = meta.get("rev", 0) + 1
         await get_store().kits.save(k)
-        return brief
-    if collection not in ("questions", "flashcards", "requirements"):
+        return {**brief, "_rev": meta["rev"]}
+    if collection == "questions":
+        data = QuestionPatch(**body)
+    elif collection == "flashcards":
+        data = FlashcardPatch(**body)
+    elif collection == "requirements":
+        data = RequirementPatch(**body)
+    else:
         raise KitError(Codes.NOT_FOUND, "unknown collection")
     target_list = kit[collection] if collection != "requirements" else kit["role"]["requirements"]
     item = next((i for i in target_list if i.get("id") == item_id), None)
     if not item:
         raise KitError(Codes.NOT_FOUND, "item not found")
-    if "rev" in body and body["rev"] != item.get("_meta", {}).get("rev"):
-        raise KitError(Codes.CONFLICT, "stale revision; refetch")
-    content_keys = [kk for kk in body.keys() if kk not in ("rev", "pinned", "_meta")]
     meta = item.setdefault("_meta", _meta_new("generated"))
-    if "pinned" in body:
-        meta["pinned"] = bool(body["pinned"])
-    # category move counts as edit
-    for kk in content_keys:
-        item[kk] = body[kk]
-    if content_keys or body.get("category_moved"):
+    if data.rev != meta.get("rev"):
+        raise KitError(Codes.CONFLICT, "stale revision; refetch")
+    values = data.model_dump(exclude_unset=True, exclude={"rev", "pinned", "category_moved"})
+    if collection == "questions" and values.get("requirement_ids") is not None:
+        _check_refs(values["requirement_ids"], _req_ids(kit))
+    if collection == "flashcards" and values.get("requirement_ids") is not None:
+        _check_refs(values["requirement_ids"], _req_ids(kit))
+    material = False
+    for field, value in values.items():
+        if value is not None and item.get(field) != value:
+            item[field] = value
+            material = True
+    moved = bool(getattr(data, "category_moved", None)) or (
+        collection == "questions" and "category" in values and values["category"] is not None)
+    if data.pinned is not None:
+        meta["pinned"] = data.pinned
+    if material or moved:
         meta["edited"] = True
         meta["rev"] = meta.get("rev", 1) + 1
-    # rapid double-edit safe: serialised here (single process); rev increments each patch
-    if collection == "questions":
-        # schedule keeps refs; nothing to strip on edit
-        pass
-    _recompute(k)
+    affecting = collection in ("questions", "requirements") and (material or moved)
+    _recompute(k, schedule_affecting=affecting)
     await get_store().kits.save(k)
     return item
 
@@ -107,42 +171,46 @@ async def delete_item(kit_id: str, collection: str, item_id: str, user: dict = D
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
-    if collection not in ("questions", "flashcards", "requirements"):
-        raise KitError(Codes.NOT_FOUND, "unknown collection")
     if collection == "questions":
         kit["questions"] = [i for i in kit["questions"] if i.get("id") != item_id]
-        # strip from schedule immediately
+        # strip from schedule immediately and repair minutes
         for day in kit.get("schedule", {}).get("days", []):
             day["question_ids"] = [q for q in day.get("question_ids", []) if q != item_id]
-    elif collection == "flashcards":
+        _fix_minutes(kit)
+        _recompute(k, schedule_affecting=True)
+        await get_store().kits.save(k)
+        return {"ok": True}
+    if collection == "flashcards":
         kit["flashcards"] = [i for i in kit["flashcards"] if i.get("id") != item_id]
-    else:
+        _recompute(k, schedule_affecting=False)
+        await get_store().kits.save(k)
+        return {"ok": True}
+    if collection == "requirements":
+        before = len(kit["role"]["requirements"])
         kit["role"]["requirements"] = [i for i in kit["role"]["requirements"] if i.get("id") != item_id]
-    _recompute(k)
-    await get_store().kits.save(k)
-    return {"ok": True}
-
-
-class ReorderBody(BaseModel):
-    id: str
-    category: str | None = None
-    after_id: str | None = None
+        if len(kit["role"]["requirements"]) == before:
+            raise KitError(Codes.NOT_FOUND, "item not found")
+        flagged = _strip_refs(kit, item_id)
+        _recompute(k, schedule_affecting=True)
+        await get_store().kits.save(k)
+        return {"ok": True, "flagged": flagged}
+    raise KitError(Codes.NOT_FOUND, "unknown collection")
 
 
 @router.post("/api/kits/{kit_id}/questions/reorder")
-async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_user)) -> dict:
+async def reorder(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
+    data = ReorderBodyStrict(**body)
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
-    item = next((i for i in kit["questions"] if i.get("id") == body.id), None)
+    item = next((i for i in kit["questions"] if i.get("id") == data.id), None)
     if not item:
         raise KitError(Codes.NOT_FOUND, "question not found")
     meta = item.setdefault("_meta", _meta_new("generated"))
-    if body.category and body.category != item.get("category"):
-        item["category"] = body.category
-        meta["edited"] = True  # cross-category move counts as edit
-        meta["rev"] += 1
+    if data.category and data.category != item.get("category"):
+        item["category"] = data.category
+        # cross-category move counts as an edit (rev bumped once below)
     # fractional order within target category
     siblings = sorted(
         [q for q in kit["questions"] if q.get("category") == item.get("category") and q.get("id") != item.get("id")],
@@ -150,11 +218,13 @@ async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_u
     )
     if not siblings:
         meta["order"] = FIRST_KEY
-    elif body.after_id is None:
+    elif data.after_id is None:
         meta["order"] = key_between(None, siblings[0].get("_meta", {}).get("order"))
     else:
-        idx = next((i for i, q in enumerate(siblings) if q.get("id") == body.after_id), len(siblings) - 1)
-        prev_k = siblings[idx].get("_meta", {}).get("order") if idx >= 0 else None
+        idx = next((i for i, q in enumerate(siblings) if q.get("id") == data.after_id), None)
+        if idx is None:
+            raise KitError(Codes.INVALID_INPUT, "unknown after_id")
+        prev_k = siblings[idx].get("_meta", {}).get("order")
         next_k = siblings[idx + 1].get("_meta", {}).get("order") if idx + 1 < len(siblings) else None
         meta["order"] = key_between(prev_k, next_k)
     scope = sorted(
@@ -165,6 +235,7 @@ async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_u
         # reassign short keys across the category, preserving rev/edited flags
         for q, fresh in zip(scope, rebalance(len(scope))):
             q.setdefault("_meta", _meta_new("generated"))["order"] = fresh
-    _recompute(k)
+    # reordering alone never affects the schedule
+    _recompute(k, schedule_affecting=False)
     await get_store().kits.save(k)
     return item

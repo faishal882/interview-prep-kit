@@ -124,11 +124,12 @@ async def export_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
-    # strip item metadata (_meta) — export exact Appendix A shape
+    # strip all internal metadata — export exact Appendix A shape
     import copy
     out = copy.deepcopy(kit)
     out.pop("research_log", None)
     out.pop("warnings", None)
+    out.pop("_brief_meta", None)
     for q in out.get("questions", []):
         q.pop("_meta", None)
         q.pop("outline_points", None) if False else None  # outline_points is allowed extension; keep? strip to be safe? keep.
@@ -138,6 +139,8 @@ async def export_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
         r.pop("_meta", None)
         r.pop("evidence", None)
     errs = validate_kit({**out, "research_log": {}, "warnings": []} if "research_log" not in out else out)
+    if errs:
+        raise KitError(Codes.KIT_INVALID, f"kit does not validate for export: {errs[0]}")
     return out
 
 
