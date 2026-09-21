@@ -1,13 +1,23 @@
 "use client";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { SectionsApi } from "@/lib/api-client";
+import { JobsApi, SectionsApi } from "@/lib/api-client";
 import { kitKeys, useKit } from "@/lib/kit-cache";
+import { pollJob } from "@/lib/progress";
 import { planRegeneration } from "@/lib/regen-controller";
 import { ConfirmDialog, LiveRegion } from "@/components/feedback";
 import { formatWithRef } from "@/lib/errors";
 import { OriginBadge } from "@/components/badges";
 import type { Category } from "@/lib/types";
+
+async function waitForJob(jobId: string): Promise<{ ok: boolean; message: string }> {
+  const job = await pollJob(() => JobsApi.get(jobId), {
+    isHidden: () => typeof document !== "undefined" && document.hidden,
+  });
+  if (job.status === "done") return { ok: true, message: "" };
+  const err = job.error as { message?: string } | null | undefined;
+  return { ok: false, message: err?.message ?? "Regeneration failed. Your Kit is unchanged." };
+}
 
 // Regenerate a Section: confirmation with replaced/protected counts, dimming
 // of replaceable items while running, new-item badges after completion.
@@ -28,7 +38,10 @@ export function RegenCategoryButton({ kitId, category }: { kitId: string; catego
     setError("");
     const before = new Set(questions.map((q) => q.id));
     try {
-      await SectionsApi.regenerate(kitId, `questions:${category}`);
+      const res = (await SectionsApi.regenerate(kitId, `questions:${category}`)) as { job_id?: string };
+      if (!res.job_id) throw new Error("No job started.");
+      const done = await waitForJob(res.job_id);
+      if (!done.ok) throw new Error(done.message);
       await qc.invalidateQueries({ queryKey: kitKeys.detail(kitId) });
       const fresh = (qc.getQueryData(kitKeys.detail(kitId)) as { kit?: { questions?: Array<{ id: string }> } } | undefined)
         ?.kit?.questions?.filter((q) => !before.has(q.id)).map((q) => q.id) ?? [];
@@ -113,10 +126,28 @@ export function BriefRegen({ kitId }: { kitId: string }) {
   const { data } = useKit(kitId);
   const [live, setLive] = useState("");
   const proposal = data?.proposals?.brief;
+  const [busy, setBusy] = useState(false);
   const run = async () => {
-    const res = await SectionsApi.regenerate(kitId, "brief");
-    await qc.invalidateQueries({ queryKey: kitKeys.detail(kitId) });
-    setLive(res.proposal ? "A Proposal is ready below. Your current text is unchanged." : "Brief refreshed.");
+    setBusy(true);
+    try {
+      const res = (await SectionsApi.regenerate(kitId, "brief")) as { job_id?: string };
+      if (!res.job_id) throw new Error("No job started.");
+      const done = await waitForJob(res.job_id);
+      if (!done.ok) throw new Error(done.message);
+      await qc.invalidateQueries({ queryKey: kitKeys.detail(kitId) });
+      const updated = qc.getQueryData(kitKeys.detail(kitId)) as
+        | { proposals?: { brief?: { summary: string } } }
+        | undefined;
+      setLive(
+        updated?.proposals?.brief
+          ? "A Proposal is ready below. Your current text is unchanged."
+          : "Brief refreshed.",
+      );
+    } catch (e) {
+      setLive(formatWithRef(e));
+    } finally {
+      setBusy(false);
+    }
   };
   const accept = async () => {
     await SectionsApi.acceptBrief(kitId);
@@ -131,8 +162,8 @@ export function BriefRegen({ kitId }: { kitId: string }) {
   return (
     <div className="no-print">
       <LiveRegion message={live} />
-      <button onClick={() => void run()} className="button button-secondary button-small">
-        Regenerate brief
+      <button onClick={() => void run()} disabled={busy} className="button button-secondary button-small">
+        {busy ? "Regenerating…" : "Regenerate brief"}
       </button>
       {proposal ? (
         <div role="group" aria-label="Brief Proposal" className="neu-card-flat" style={{ marginTop: 12 }}>
@@ -156,16 +187,27 @@ export function BriefRegen({ kitId }: { kitId: string }) {
 export function GenerateForGapButton({ kitId, requirementId }: { kitId: string; requirementId: string }) {
   const qc = useQueryClient();
   const [live, setLive] = useState("");
+  const [busy, setBusy] = useState(false);
   const run = async () => {
-    await SectionsApi.generateForRequirement(kitId, requirementId);
-    await qc.invalidateQueries({ queryKey: kitKeys.detail(kitId) });
-    setLive(`Generated a Question for ${requirementId}. Nothing else changed.`);
+    setBusy(true);
+    try {
+      const res = (await SectionsApi.generateForRequirement(kitId, requirementId)) as { job_id?: string };
+      if (!res.job_id) throw new Error("No job started.");
+      const done = await waitForJob(res.job_id);
+      if (!done.ok) throw new Error(done.message);
+      await qc.invalidateQueries({ queryKey: kitKeys.detail(kitId) });
+      setLive(`Generated a Question for ${requirementId}. Nothing else changed.`);
+    } catch (e) {
+      setLive(formatWithRef(e));
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <span>
       <LiveRegion message={live} />
-      <button onClick={() => void run()} className="button button-secondary button-small">
-        Generate a Question for this
+      <button onClick={() => void run()} disabled={busy} className="button button-secondary button-small">
+        {busy ? "Generating…" : "Generate a Question for this"}
       </button>
     </span>
   );

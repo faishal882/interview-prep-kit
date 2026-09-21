@@ -85,7 +85,13 @@ async function main() {
     console.log("edited", added.id);
 
     const regen = await req(`/api/kits/${created.kit_id}/sections/questions:${added.category}/regenerate`, { method: "POST" });
-    console.log("regenerated", added.category, JSON.stringify(regen).slice(0, 120));
+    console.log("regeneration job", regen.job_id);
+    await waitFor(async () => {
+      const j = await req(`/api/jobs/${regen.job_id}`);
+      if (j.status === "done") return j;
+      if (j.status === "failed") throw new Error(`regen failed: ${JSON.stringify(j.error)}`);
+      return null;
+    }, 120000, "regen done");
 
     const after = await req(`/api/kits/${created.kit_id}`);
     const kept = after.kit.questions.find((x) => x.id === added.id);

@@ -65,9 +65,15 @@ def test_regeneration_keeps_protected_and_proposal():
     if qs:
         rev = next(q["_meta"]["rev"] for q in k["kit"]["questions"] if q["id"] == qs[0]["id"])
         c.patch(f"/api/kits/{kit_id}/questions/{qs[0]['id']}", json={"rev": rev, "prompt": "hand-edited"})
-    # regenerate category keeps protected
+    # regenerate category keeps protected (real async job: poll for completion)
     rr = c.post(f"/api/kits/{kit_id}/sections/questions:technical/regenerate").json()
-    assert rr.get("ok") is True
+    assert "job_id" in rr
+    for _ in range(60):
+        time.sleep(0.5)
+        j = c.get(f"/api/jobs/{rr['job_id']}").json()
+        if j["status"] in ("done", "failed"):
+            break
+    assert j["status"] == "done", j
     k2 = c.get(f"/api/kits/{kit_id}").json()
     prompts = [q["prompt"] for q in k2["kit"]["questions"]]
     if qs:
@@ -75,7 +81,14 @@ def test_regeneration_keeps_protected_and_proposal():
     # edited brief -> proposal
     c.patch(f"/api/kits/{kit_id}/brief/x", json={"rev": 0, "summary": "my take"})
     p = c.post(f"/api/kits/{kit_id}/sections/brief/regenerate").json()
-    assert "proposal" in p
+    assert "job_id" in p
+    for _ in range(60):
+        time.sleep(0.5)
+        j = c.get(f"/api/jobs/{p['job_id']}").json()
+        if j["status"] in ("done", "failed"):
+            break
+    assert j["status"] == "done", j
+    assert "brief" in (c.get(f"/api/kits/{kit_id}").json().get("proposals") or {})
 
 
 def test_practice_queue_review_summary_and_check():

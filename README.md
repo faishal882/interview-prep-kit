@@ -118,7 +118,10 @@ changed since the job started (in-flight edits survive). Moving a Question acros
 counts as an edit; reordering within one changes only the fractional-index `order` key
 (exact rational midpoints in `app/domain/ordering.py`, mirrored in `lib/ordering.ts` from
 shared vectors in `fixtures/ordering-vectors.json`; scopes rebalance to short keys past
-32 characters, old keys keep sorting without migration). Brief regeneration on an edited brief returns a **proposal**. Manual Schedule edits are kept
+32 characters, old keys keep sorting without migration). Regenerating a Category calls the
+model (the Category's own prompt, hiring signals, kept prompts as an exclusion list) and
+commits atomically, keeping protected items and in-flight edits, then recomputes coverage.
+Brief regeneration on an edited brief returns a **proposal**. Manual Schedule edits are kept
 until an explicit rebuild (warns before replacing); deleted Question ids are stripped immediately.
 Metadata (including brief metadata) is stripped on export, and the export is validated
 before serving — an invalid Kit yields a clear error, never a payload.
