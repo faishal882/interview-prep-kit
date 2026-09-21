@@ -15,7 +15,7 @@ def envelope(code: str, message: str, details: dict | None = None, trace_id: str
 
 async def kit_error_handler(request: Request, exc: KitError) -> JSONResponse:
     status = {"UNAUTHORIZED": 401, "SESSION_EXPIRED": 401, "FORBIDDEN": 403, "NOT_FOUND": 404,
-              "CONFLICT": 409, "RATE_LIMITED": 429}.get(exc.code, 400)
+              "CONFLICT": 409, "RATE_LIMITED": 429, "PAYLOAD_TOO_LARGE": 413}.get(exc.code, 400)
     return JSONResponse(status_code=status, content=envelope(exc.code, exc.message, exc.details))
 
 

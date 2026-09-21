@@ -93,6 +93,8 @@ class CheckBody(BaseModel):
 
 @router.post("/api/kits/{kit_id}/practice/check")
 async def check(kit_id: str, body: CheckBody, user: dict = Depends(current_user)) -> dict:
+    if len(body.answer) > 10000:
+        raise KitError(Codes.INVALID_INPUT, "answer too long")
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit") or {}
     q = next((x for x in kit.get("questions", []) if x.get("id") == body.question_id), None)

@@ -34,10 +34,13 @@ class CreateKit(BaseModel):
 
 @router.post("/api/kits")
 async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
+    settings = get_settings()
     if not body.jd.strip():
         raise KitError(Codes.INVALID_INPUT, "empty jd")
     if not (1 <= body.days <= 60):
         raise KitError(Codes.INVALID_INPUT, "days must be 1..60")
+    if len(body.company_url) > 2000:
+        raise KitError(Codes.INVALID_INPUT, "company url too long")
     store = get_store()
     key = dedupe_key(user["id"], body.jd, body.company_url, body.days)
     if not body.force_new:
@@ -45,6 +48,9 @@ async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = 
         if dup:
             j = await store.jobs.active_for_kit(dup["id"])
             return {"kit_id": dup["id"], "job_id": j["id"] if j else None, "duplicate": True}
+    # per-user concurrency applies to every new generation
+    if await store.jobs.running_for_user(user["id"]) >= settings.MAX_CONCURRENT_PER_USER:
+        raise KitError(Codes.RATE_LIMITED, "a generation is already running; wait for it to finish")
     # failed kits retried in place: reuse doc if same key failed
     kit_id = None
     if not body.force_new:
@@ -52,6 +58,12 @@ async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = 
         if failed:
             kit_id = failed["id"]
     if kit_id is None:
+        if await store.kits.created_since(user["id"], time.time() - 86400) >= settings.MAX_KITS_PER_DAY:
+            raise KitError(Codes.RATE_LIMITED,
+                           f"daily kit creation limit reached ({settings.MAX_KITS_PER_DAY})")
+        if await store.kits.count_for_user(user["id"]) >= settings.MAX_STORED_KITS:
+            raise KitError(Codes.RATE_LIMITED,
+                           f"kit storage limit reached ({settings.MAX_STORED_KITS})")
         kit_id = uuid.uuid4().hex[:12]
         await store.kits.create({"id": kit_id, "user_id": user["id"], "dedupe_key": key,
                                  "status": "generating",
@@ -105,7 +117,8 @@ async def list_kits(user: dict = Depends(current_user)) -> dict:
 
 @router.get("/api/kits/{kit_id}")
 async def get_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
-    return await get_kit_or_404(kit_id, user["id"])
+    doc = await get_kit_or_404(kit_id, user["id"])
+    return {k: v for k, v in doc.items() if k not in ("user_id", "dedupe_key")}
 
 
 @router.delete("/api/kits/{kit_id}")
@@ -153,7 +166,7 @@ async def get_job(job_id: str, user: dict = Depends(current_user)) -> dict:
     k = await store.kits.get(j.get("kit_id", ""))
     if not k or k.get("user_id") != user["id"]:
         raise KitError(Codes.NOT_FOUND, "job not found")
-    return j
+    return {k2: v for k2, v in j.items() if k2 not in ("user_id", "heartbeat", "attempts")}
 
 
 class BatchEntry(BaseModel):
@@ -174,6 +187,15 @@ async def batch_upload(body: list[BatchEntry], background: BackgroundTasks, user
         eid = e.id or f"entry-{i}"
         if not e.jd.strip() or not (1 <= e.days <= 60):
             rejected.append({"id": eid, "reason": "malformed entry (jd/days)"})
+            continue
+        if len(e.jd) > s.MAX_JD_CHARS or len(e.company_url) > 2000:
+            rejected.append({"id": eid, "reason": "entry too long (jd/url)"})
+            continue
+        if await store.kits.created_since(user["id"], time.time() - 86400) >= s.MAX_KITS_PER_DAY:
+            rejected.append({"id": eid, "reason": f"daily kit creation limit reached ({s.MAX_KITS_PER_DAY})"})
+            continue
+        if await store.kits.count_for_user(user["id"]) >= s.MAX_STORED_KITS:
+            rejected.append({"id": eid, "reason": f"kit storage limit reached ({s.MAX_STORED_KITS})"})
             continue
         key = dedupe_key(user["id"], e.jd, e.company_url, e.days)
         dup = await store.kits.find_by_dedupe(user["id"], key, ("ready", "generating"))

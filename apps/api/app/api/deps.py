@@ -14,10 +14,16 @@ from app.persistence.store import get_store
 def check_origin(request: Request) -> None:
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return
+    settings = get_settings()
     origin = request.headers.get("origin")
+    allowed = [o.strip() for o in (settings.ALLOWED_ORIGINS or "").split(",") if o.strip()]
+    if settings.ENV == "production":
+        # fail closed: mutating requests must carry an allowed origin
+        if not allowed or not origin or origin not in allowed:
+            raise KitError(Codes.FORBIDDEN, "foreign origin rejected")
+        return
     if not origin:
         return
-    allowed = [o.strip() for o in (get_settings().ALLOWED_ORIGINS or "").split(",") if o.strip()]
     if allowed and origin not in allowed:
         raise KitError(Codes.FORBIDDEN, "foreign origin rejected")
 

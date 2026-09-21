@@ -67,6 +67,21 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=403, content=env(ke.code, ke.message, ke.details))
         return await call_next(request)
 
+    @app.middleware("http")
+    async def body_limit_middleware(request, call_next):
+        from fastapi.responses import JSONResponse
+        from app.api.errors import envelope as env
+        from app.config import get_settings as _settings
+        try:
+            limit = _settings().MAX_BODY_BYTES
+        except Exception:
+            limit = 1048576
+        clen = request.headers.get("content-length", "")
+        if clen.isdigit() and int(clen) > limit:
+            return JSONResponse(status_code=413,
+                                content=env("PAYLOAD_TOO_LARGE", "request body too large"))
+        return await call_next(request)
+
     app.include_router(auth.router)
     app.include_router(kits.router)
     app.include_router(items.router)
