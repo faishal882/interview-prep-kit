@@ -142,6 +142,27 @@ class MongoJobs:
     async def running_count(self) -> int:
         return await self._col.count_documents({"status": "running"})
 
+    async def running_for_user(self, user_id: str) -> int:
+        return await self._col.count_documents({"status": "running", "user_id": user_id})
+
+    async def claim_next(self, exclude: tuple[str, ...] = ()) -> dict | None:
+        import time as _time
+        from pymongo import ReturnDocument
+        filt: dict = {"status": "pending"}
+        if exclude:
+            filt["_id"] = {"$nin": list(exclude)}
+        doc = await self._col.find_one_and_update(
+            filt,
+            {"$set": {"status": "running", "heartbeat": _time.time()}},
+            sort=[("created_at", 1)],
+            return_document=ReturnDocument.AFTER,
+        )
+        return _out(doc) if doc else None
+
+    async def stale_running(self, before_ts: float) -> list[dict]:
+        cur = self._col.find({"status": "running", "heartbeat": {"$lt": before_ts}})
+        return [_out(d) for d in await cur.to_list(length=None)]
+
     async def save(self, doc: dict) -> None:
         await self._col.replace_one({"_id": doc["id"]}, {**doc, "_id": doc["id"]}, upsert=True)
 

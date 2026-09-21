@@ -126,6 +126,27 @@ class MemoryJobs:
     async def running_count(self) -> int:
         return sum(1 for j in self._jobs.values() if j.get("status") == "running")
 
+    async def running_for_user(self, user_id: str) -> int:
+        return sum(1 for j in self._jobs.values()
+                   if j.get("status") == "running" and j.get("user_id") == user_id)
+
+    async def claim_next(self, exclude: tuple[str, ...] = ()) -> dict | None:
+        pending = sorted(
+            (j for j in self._jobs.values()
+             if j.get("status") == "pending" and j.get("id") not in exclude),
+            key=lambda j: j.get("created_at", 0),
+        )
+        if not pending:
+            return None
+        job = pending[0]
+        job["status"] = "running"
+        job["heartbeat"] = time.time()
+        return _clone(job)
+
+    async def stale_running(self, before_ts: float) -> list[dict]:
+        return [_clone(j) for j in self._jobs.values()
+                if j.get("status") == "running" and j.get("heartbeat", 0) < before_ts]
+
     async def save(self, doc: dict) -> None:
         self._jobs[doc["id"]] = _clone(doc)
 

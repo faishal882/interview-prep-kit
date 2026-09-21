@@ -14,14 +14,20 @@ STEPS = ["ingest", "extract_requirements", "crawl_company", "research_discussion
 STALE_AFTER = 30  # seconds without heartbeat -> stale
 
 
-def new_job(kit_id: str) -> dict:
+def new_job(kit_id: str, *, user_id: str = "", kind: str = "generation",
+              deadline: float | None = None) -> dict:
+    now = time.time()
     return {
         "id": uuid.uuid4().hex[:12],
         "kit_id": kit_id,
+        "user_id": user_id,
+        "kind": kind,
         "status": "pending",  # pending|running|done|failed
         "steps": [{"name": s, "status": "pending", "message": "", "started_at": None, "finished_at": None} for s in STEPS],
         "attempts": 0,
-        "heartbeat": time.time(),
+        "heartbeat": now,
+        "created_at": now,
+        "deadline": deadline if deadline is not None else now + 240.0,
         "error": None,
         "retryable": False,
     }
