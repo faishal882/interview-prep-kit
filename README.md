@@ -34,7 +34,12 @@ GEMINI_API_KEY=... npm run evaluate -- --input <cases.json> --output <kits.json>
 # offline / tests:
 FAKE_LLM=1 npm run evaluate -- --input fixtures/cases.json --output out.json
 npm test                                             # pytest: unit + property + integration
+npm run verify                                       # lint (if ruff) + tests + drift + high-severity audits
 ```
+
+Delivery (see `docs/runbook.md`): `docker build -f apps/api/Dockerfile`, production compose under
+`infra/deploy/`, Terraform under `infra/terraform/`, `npm run deploy` / `npm run rollback`.
+Python runtime deps are pinned in `apps/api/requirements.lock`.
 
 Sample input: `fixtures/cases.json`. Sample output: `fixtures/sample-output.json`.
 Exported structure schema: `fixtures/kit.schema.json` (generated from the Pydantic models

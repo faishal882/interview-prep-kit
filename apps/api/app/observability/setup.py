@@ -151,10 +151,10 @@ def span(name: str, attributes: dict | None = None) -> Iterator[dict]:
         yield {"name": name, "attributes": attrs}
 
 
-def record_metric(kind: str, value: int = 1, **labels: str) -> None:
+def record_metric(name: str, value: int = 1, **labels: str) -> None:
     if not _enabled:
         return
-    counter = _metrics.get(kind)
+    counter = _metrics.get(name)
     if counter is None:
         return
     try:

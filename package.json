@@ -12,6 +12,9 @@
     "web:install": "npm --prefix apps/web install",
     "web:dev": "npm --prefix apps/web run dev",
     "web:test": "npm --prefix apps/web test",
-    "web:e2e": "npm --prefix apps/web run e2e"
+    "web:e2e": "npm --prefix apps/web run e2e",
+    "verify": "node scripts/verify.mjs",
+    "deploy": "bash infra/deploy/deploy.sh",
+    "rollback": "bash infra/deploy/rollback.sh"
   }
 }

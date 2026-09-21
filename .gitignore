@@ -1,5 +1,6 @@
 apps/api/.venv/
 .env
+.env.prod
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -10,3 +11,8 @@ apps/web/out/
 *.egg-info/
 apps/web/next-env.d.ts
 apps/web/tsconfig.tsbuildinfo
+# Terraform local state and secrets
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/terraform.tfvars

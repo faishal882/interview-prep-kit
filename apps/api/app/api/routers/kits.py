@@ -132,7 +132,7 @@ async def delete_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return {"ok": True}
 
 
-@router.get("/api/kits/{kit_id}/export", response_model=ExportOut)
+@router.get("/api/kits/{kit_id}/export", response_model=ExportOut, response_model_exclude_none=True)
 async def export_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")

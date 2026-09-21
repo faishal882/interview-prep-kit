@@ -10,6 +10,9 @@ os.environ.setdefault("FAKE_LLM", "1")
 os.environ.setdefault("ENV", "development")
 # Registration is closed by default; tests provision users through the API.
 os.environ.setdefault("REGISTRATION_OPEN", "true")
+# API tests use in-memory repositories. Durable Mongo suites opt in via
+# MONGODB_TEST_URI / explicit Settings — never inherit a developer .env URI.
+os.environ["MONGODB_URI"] = ""
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +24,10 @@ def _isolate_process_global_state():
     """
     from app.llm import router as router_mod
     from app.retrieval import safe_fetch as fetch_mod
+    from app.config import reset_settings
+    from app.persistence.store import reset_stores
+    reset_settings()
+    reset_stores()
     router_mod.reset_shared_limiter()
     fetch_mod._host_last.clear()
     yield

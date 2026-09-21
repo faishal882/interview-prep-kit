@@ -59,7 +59,7 @@ async def execute_generation(job: dict, store) -> None:
         job["error"] = {"code": Codes.NOT_FOUND, "message": "kit gone"}
         job["retryable"] = False
         await store.jobs.save(job)
-        record_metric("jobs", 1, outcome="failed", kind="generation")
+        record_metric("jobs", 1, outcome="failed", job_kind="generation")
         return
     case = kit.get("input") or {}
 
@@ -89,21 +89,21 @@ async def execute_generation(job: dict, store) -> None:
                 if s["status"] in ("pending", "running"):
                     s["status"] = "skipped"
                     s["message"] = s["message"] or "skipped"
-            record_metric("jobs", 1, outcome="done", kind="generation")
+            record_metric("jobs", 1, outcome="done", job_kind="generation")
         except KitError as ke:
             kit["status"] = "failed"
             kit["error"] = {"code": ke.code, "message": ke.message}
             job["status"] = "failed"
             job["error"] = {"code": ke.code, "message": ke.message}
             job["retryable"] = True
-            record_metric("jobs", 1, outcome="failed", kind="generation")
+            record_metric("jobs", 1, outcome="failed", job_kind="generation")
         except Exception as exc:
             kit["status"] = "failed"
             kit["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
             job["status"] = "failed"
             job["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
             job["retryable"] = True
-            record_metric("jobs", 1, outcome="failed", kind="generation")
+            record_metric("jobs", 1, outcome="failed", job_kind="generation")
         await store.jobs.save(job)
         await store.kits.save(kit)
 

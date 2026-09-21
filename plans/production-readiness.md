@@ -318,13 +318,13 @@ Everything needed to ship: a container image for the API and a production compos
 
 ### Acceptance criteria
 
-- [ ] The image builds from a clean checkout and the production composition starts, passes readiness, and serves the API
-- [ ] Terraform validates and plans from a clean checkout; state and secrets are not in the repository
-- [ ] A deploy and a rollback each complete with one command; rollback restores the previous release
-- [ ] A snapshot restore procedure is documented and has been exercised once
-- [ ] `verify` passes from a clean checkout and fails on a lint, type, test, drift or high-severity audit problem
-- [ ] A clean install from the lockfile reproduces the tested dependency set
-- [ ] The runbook exists and each command in it has been run
+- [x] The image builds from a clean checkout and the production composition starts, passes readiness, and serves the API
+- [x] Terraform validates and plans from a clean checkout; state and secrets are not in the repository
+- [x] A deploy and a rollback each complete with one command; rollback restores the previous release
+- [x] A snapshot restore procedure is documented and has been exercised once
+- [x] `verify` passes from a clean checkout and fails on a lint, type, test, drift or high-severity audit problem
+- [x] A clean install from the lockfile reproduces the tested dependency set
+- [x] The runbook exists and each command in it has been run
 
 ---
 
