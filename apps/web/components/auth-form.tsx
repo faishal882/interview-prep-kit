@@ -81,6 +81,81 @@ export function LoginForm() {
             Log in
           </button>
         </form>
+        <p style={{ marginTop: 24, fontSize: 14, color: "var(--copy)" }}>
+          Don't have an account?{" "}
+          <a href="/register" style={{ color: "var(--accent)" }}>
+            Sign up
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function RegisterForm() {
+  const { register: registerUser } = useAuth();
+  const router = useRouter();
+  const [serverError, setServerError] = useState("");
+  const {
+    register: field,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<Fields>({ resolver: zodResolver(schema) });
+
+  const onSubmit = async (v: Fields) => {
+    setServerError("");
+    try {
+      await registerUser(v.email, v.password);
+      router.push("/kits");
+    } catch (e) {
+      const err = e as ApiError;
+      setServerError(`${err.message ?? "Failed."}${err.referenceId ? ` (ref ${err.referenceId})` : ""}`);
+    }
+  };
+
+  return (
+    <div className="hero-panel">
+      <div className="hero-copy" style={{ padding: "48px 40px" }}>
+        <span className="eyebrow">Get started</span>
+        <h1 style={{ fontSize: "clamp(32px, 3vw, 44px)" }}>Create an account</h1>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ marginTop: 24, display: "grid", gap: 16, width: "100%", maxWidth: 440 }}>
+          <div>
+            <label htmlFor="email" className="field-label">
+              Email
+            </label>
+            <input id="email" type="email" autoComplete="email" {...field("email")} className="inset-input" />
+            {errors.email ? (
+              <p role="alert" className="field-error">
+                {errors.email.message}
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <label htmlFor="password" className="field-label">
+              Password
+            </label>
+            <input id="password" type="password" autoComplete="new-password" {...field("password")} className="inset-input" />
+            {errors.password ? (
+              <p role="alert" className="field-error">
+                {errors.password.message}
+              </p>
+            ) : null}
+          </div>
+          {serverError ? (
+            <p role="alert" className="field-error">
+              {serverError}
+            </p>
+          ) : null}
+          <button type="submit" disabled={isSubmitting} className="button">
+            Sign up
+          </button>
+        </form>
+        <p style={{ marginTop: 24, fontSize: 14, color: "var(--copy)" }}>
+          Already have an account?{" "}
+          <a href="/login" style={{ color: "var(--accent)" }}>
+            Log in
+          </a>
+        </p>
       </div>
     </div>
   );

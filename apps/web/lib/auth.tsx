@@ -7,6 +7,7 @@ interface AuthState {
   user: { id: string; email: string } | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -35,13 +36,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const u = await AuthApi.login(email, password);
     setUser(u);
   }, []);
+  const register = useCallback(async (email: string, password: string) => {
+    const u = await AuthApi.register(email, password);
+    setUser(u);
+  }, []);
   const logout = useCallback(async () => {
     await AuthApi.logout().catch(() => undefined);
     setUser(null);
     router.push("/login");
   }, [router]);
 
-  return <Ctx.Provider value={{ user, loading, login, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, login, register, logout }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth(): AuthState {
