@@ -1,7 +1,7 @@
 "use client";
 import { originBadge, type ItemMeta } from "@/lib/types";
 
-export function OriginBadge({ meta }: { meta?: ItemMeta }) {
+export function OriginBadge({ meta }: { meta?: ItemMeta | null }) {
   const label = originBadge(meta);
   const cls = label === "Pinned" ? "pill" : label === "Yours" ? "pill pill-teal" : label === "Edited" ? "pill" : "pill pill-neutral";
   return (

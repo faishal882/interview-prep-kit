@@ -9,6 +9,7 @@ const q = (id: string, meta: Question["_meta"]): Question => ({
   prompt: id,
   answer_outline: "",
   difficulty: 1,
+  outline_points: [],
   _meta: meta,
 });
 

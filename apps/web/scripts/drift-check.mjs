@@ -1,41 +1,37 @@
-// Drift check: generated types match the committed OpenAPI document.
-// Fails the test run on drift.
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+// Drift check: regenerates types from the single committed OpenAPI source
+// and fails the test run when the committed lib/api-types.ts differs.
+// A response-shape change without regenerating types fails the build.
+import { execFileSync } from "node:child_process";
+import { readFileSync, existsSync, unlinkSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const webDir = resolve(here, "..");
-const committedApi = resolve(webDir, "../api/openapi.json");
-const mirrored = resolve(webDir, "openapi.json");
-const generated = resolve(webDir, "lib/generated.ts");
+const committed = resolve(webDir, "lib/api-types.ts");
+const apiSpec = resolve(webDir, "../api/openapi.json");
 
 let fail = false;
-if (!existsSync(mirrored)) {
-  console.error("DRIFT: apps/web/openapi.json missing — run npm run generate:types and copy the spec.");
-  fail = true;
-} else {
-  const a = readFileSync(committedApi, "utf8");
-  const b = readFileSync(mirrored, "utf8");
-  if (a !== b) {
-    console.error("DRIFT: apps/web/openapi.json differs from apps/api/openapi.json. Re-copy and regenerate.");
-    fail = true;
-  }
+if (!existsSync(apiSpec)) {
+  console.error("DRIFT: apps/api/openapi.json missing.");
+  process.exit(1);
 }
-if (!existsSync(generated)) {
-  console.error("DRIFT: apps/web/lib/generated.ts missing — run npm run generate:types.");
-  fail = true;
-} else {
-  const spec = JSON.parse(readFileSync(committedApi, "utf8"));
-  const paths = Object.keys(spec.paths ?? {}).sort();
-  const gen = readFileSync(generated, "utf8");
-  for (const p of paths) {
-    if (!gen.includes(JSON.stringify(p))) {
-      console.error(`DRIFT: generated types stale — missing path ${p}`);
-      fail = true;
-      break;
-    }
-  }
+if (!existsSync(committed)) {
+  console.error("DRIFT: apps/web/lib/api-types.ts missing — run npm run generate:types.");
+  process.exit(1);
 }
-if (fail) process.exit(1);
-console.log("drift check ok");
+const tmp = join(os.tmpdir(), `api-types-drift-${process.pid}.ts`);
+execFileSync(process.execPath, [resolve(here, "generate-types.mjs"), tmp], { stdio: "inherit" });
+const a = readFileSync(committed, "utf8");
+const b = readFileSync(tmp, "utf8");
+try {
+  unlinkSync(tmp);
+} catch {
+  /* ignore */
+}
+if (a !== b) {
+  console.error("DRIFT: lib/api-types.ts is stale — run npm run generate:types and commit.");
+  process.exit(1);
+}
+console.log("drift check ok (schemas match committed types)");

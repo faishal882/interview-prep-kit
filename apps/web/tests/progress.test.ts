@@ -20,8 +20,8 @@ describe("progress polling", () => {
       async () => {
         calls += 1;
         return calls < 2
-          ? { id: "j", kit_id: "k", status: "running", steps: [] }
-          : { id: "j", kit_id: "k", status: "done", steps: [] };
+          ? { id: "j", kit_id: "k", kind: "generate", status: "running", steps: [], retryable: false }
+          : { id: "j", kit_id: "k", kind: "generate", status: "done", steps: [], retryable: false };
       },
       { isHidden: () => false },
     );
@@ -36,7 +36,7 @@ describe("progress polling", () => {
     const job = await pollJob(
       async () => {
         calls += 1;
-        return { id: "j", kit_id: "k", status: "done", steps: [] };
+        return { id: "j", kit_id: "k", kind: "generate", status: "done", steps: [], retryable: false };
       },
       { isHidden: () => hidden },
       10,

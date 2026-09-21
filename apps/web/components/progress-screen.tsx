@@ -118,8 +118,13 @@ export function ProgressScreen({ kitId, jobId: initialJobId }: { kitId: string; 
     setRetrying(true);
     try {
       const kit = await KitsApi.get(kitId);
-      const inp = kit.input ?? { jd: "", company_url: "", days: 5 };
-      const res = await (await import("@/lib/api-client")).KitsApi.create(inp.jd, inp.company_url, inp.days, true);
+      const inp = kit.input ?? {};
+      const res = await (await import("@/lib/api-client")).KitsApi.create(
+        inp.jd ?? "",
+        inp.company_url ?? "",
+        inp.days ?? 5,
+        true,
+      );
       router.replace(`/kits/${res.kit_id}`);
     } catch (e) {
       setError(e);

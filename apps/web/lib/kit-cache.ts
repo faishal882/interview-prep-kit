@@ -1,7 +1,7 @@
 "use client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KitsApi, JobsApi } from "./api-client";
-import type { KitDoc } from "./types";
+import type { Job, KitDoc, KitSummary } from "./types";
 
 export const kitKeys = {
   list: ["kits"] as const,
@@ -12,9 +12,9 @@ export const kitKeys = {
 export function useKitsList() {
   return useQuery({
     queryKey: kitKeys.list,
-    queryFn: async () => {
+    queryFn: async (): Promise<KitSummary[]> => {
       const res = await KitsApi.list();
-      return res.kits as Array<Record<string, unknown>>;
+      return res.kits;
     },
   });
 }
@@ -22,7 +22,7 @@ export function useKitsList() {
 export function useKit(id: string, enabled = true) {
   return useQuery({
     queryKey: kitKeys.detail(id),
-    queryFn: () => KitsApi.get(id),
+    queryFn: async (): Promise<KitDoc> => KitsApi.get(id),
     enabled,
     refetchOnWindowFocus: false,
   });
@@ -31,7 +31,7 @@ export function useKit(id: string, enabled = true) {
 export function useJob(jobId: string | null, enabled = true) {
   return useQuery({
     queryKey: kitKeys.job(jobId ?? "none"),
-    queryFn: () => JobsApi.get(jobId!),
+    queryFn: async (): Promise<Job> => JobsApi.get(jobId!),
     enabled: enabled && !!jobId,
     refetchInterval: false,
   });
