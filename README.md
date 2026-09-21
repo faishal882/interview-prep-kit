@@ -103,18 +103,25 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 take-home adds scoping/trade-off questions; a system-design round switches that Category on.
 
 ## Generated / edited / pinned state
-Every item carries `{origin, edited, pinned, rev, order}` (see ADR-0004).
-**Protected** = user-written, edited or pinned. Regenerating a Category replaces only
+
+Every item carries `{origin, edited, pinned, rev, order}` (see ADR-0004); the brief
+carries the same shape. **Protected** = user-written, edited or pinned. Creates and
+patches are validated against typed per-collection schemas (unknown fields rejected;
+Category, difficulty, kind, priority and Requirement references checked); ids are
+server-assigned and every patch carries the revision (missing is rejected, stale is a
+conflict). Deleting a Requirement prunes it from every Question, Flashcard and gap list
+and reports Questions left without a Requirement. The Schedule is marked stale only by
+changes that can affect it (never by pins, reorders or Flashcard edits), and each day's
+minutes always equal the sum of its Questions' minutes. Regenerating a Category replaces only
 unprotected items in one atomic single-document update that also keeps any item whose `rev`
 changed since the job started (in-flight edits survive). Moving a Question across Categories
 counts as an edit; reordering within one changes only the fractional-index `order` key
 (exact rational midpoints in `app/domain/ordering.py`, mirrored in `lib/ordering.ts` from
 shared vectors in `fixtures/ordering-vectors.json`; scopes rebalance to short keys past
-32 characters, old keys keep sorting without migration).
-Brief regeneration on an edited brief returns a **proposal**. Manual Schedule edits are kept
-until an explicit rebuild (warns before replacing); the Schedule is marked stale when
-Questions change; deleted Question ids are stripped immediately. Metadata is stripped on
-export so output matches Appendix A exactly.
+32 characters, old keys keep sorting without migration). Brief regeneration on an edited brief returns a **proposal**. Manual Schedule edits are kept
+until an explicit rebuild (warns before replacing); deleted Question ids are stripped immediately.
+Metadata (including brief metadata) is stripped on export, and the export is validated
+before serving — an invalid Kit yields a clear error, never a payload.
 
 ## Schedule allocation
 

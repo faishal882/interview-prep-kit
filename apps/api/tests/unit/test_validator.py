@@ -5,7 +5,7 @@ from app.validation.kit_validator import validate_kit
 def base_kit():
     return {
         "role": {"requirements": [{"id": "r1", "priority": "must"}, {"id": "r2", "priority": "nice"}]},
-        "questions": [{"id": "q1", "requirement_ids": ["r1"], "difficulty": 2}],
+        "questions": [{"id": "q1", "requirement_ids": ["r1"], "category": "technical", "difficulty": 2}],
         "flashcards": [{"id": "f1"}],
         "schedule": {"days_available": 1, "days": [{"day": 1, "question_ids": ["q1"], "minutes": 15}]},
         "coverage": {"uncovered_requirement_ids": ["r2"], "passes": 1},

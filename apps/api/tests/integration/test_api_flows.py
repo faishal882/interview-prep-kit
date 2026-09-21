@@ -35,11 +35,14 @@ def test_edit_sets_edited_and_delete_strips_schedule():
                json={"prompt": "Mine", "answer_outline": "O", "requirement_ids": [], "category": "technical", "difficulty": 1}).json()
     assert q["_meta"]["origin"] == "user"
     # edit sets edited
-    e = c.patch(f"/api/kits/{kit_id}/questions/{q['id']}", json={"prompt": "Mine v2"}).json()
+    e = c.patch(f"/api/kits/{kit_id}/questions/{q['id']}", json={"rev": q["_meta"]["rev"], "prompt": "Mine v2"}).json()
     assert e["_meta"]["edited"] is True
     # stale revision rejected
     r2 = c.patch(f"/api/kits/{kit_id}/questions/{q['id']}", json={"rev": 1, "prompt": "stale"})
     assert r2.status_code == 409
+    # missing revision rejected
+    r3 = c.patch(f"/api/kits/{kit_id}/questions/{q['id']}", json={"prompt": "no-rev"})
+    assert r3.status_code in (400, 422)
     # delete strips from schedule: put it in schedule via regeneration? simpler: delete existing q1
     first_q = k["kit"]["questions"][0]["id"] if k["kit"]["questions"] else q["id"]
     c.delete(f"/api/kits/{kit_id}/questions/{first_q}")
@@ -60,7 +63,8 @@ def test_regeneration_keeps_protected_and_proposal():
             break
     qs = k["kit"]["questions"]
     if qs:
-        c.patch(f"/api/kits/{kit_id}/questions/{qs[0]['id']}", json={"prompt": "hand-edited"})
+        rev = next(q["_meta"]["rev"] for q in k["kit"]["questions"] if q["id"] == qs[0]["id"])
+        c.patch(f"/api/kits/{kit_id}/questions/{qs[0]['id']}", json={"rev": rev, "prompt": "hand-edited"})
     # regenerate category keeps protected
     rr = c.post(f"/api/kits/{kit_id}/sections/questions:technical/regenerate").json()
     assert rr.get("ok") is True
@@ -69,7 +73,7 @@ def test_regeneration_keeps_protected_and_proposal():
     if qs:
         assert "hand-edited" in prompts
     # edited brief -> proposal
-    c.patch(f"/api/kits/{kit_id}/brief/x", json={"summary": "my take"})
+    c.patch(f"/api/kits/{kit_id}/brief/x", json={"rev": 0, "summary": "my take"})
     p = c.post(f"/api/kits/{kit_id}/sections/brief/regenerate").json()
     assert "proposal" in p
 

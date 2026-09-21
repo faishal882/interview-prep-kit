@@ -46,17 +46,22 @@ export function EditingProvider({ kitId, children }: { kitId: string; children: 
         },
         async (key, value, baseRev) => {
           const [collection, itemId, field] = key.split(":");
+          const cached = qc.getQueryData(kitKeys.detail(kitId)) as KitDoc | undefined;
           if (collection === "brief") {
-            await ItemsApi.patch(kitId, "brief", "brief", { [field]: value });
-            return {};
+            const briefRev =
+              (cached?.kit as unknown as { _brief_meta?: { rev?: number } } | undefined)?._brief_meta?.rev ?? baseRev ?? 0;
+            const res = (await ItemsApi.patch(kitId, "brief", "brief", { [field]: value, rev: briefRev })) as {
+              _rev?: number;
+            };
+            return { rev: res?._rev };
           }
           if (collection === "day") {
             await SectionsApi.patchScheduleDay(kitId, Number(itemId), { [field]: value });
             return {};
           }
-          const current = getItem(qc.getQueryData(kitKeys.detail(kitId)) as KitDoc | undefined, collection, itemId) as { _meta?: { rev?: number } } | undefined;
-          const rev = current?._meta?.rev ?? baseRev;
-          const res = (await ItemsApi.patch(kitId, collection, itemId, { [field]: value, ...(rev !== undefined ? { rev } : {}) })) as { _meta?: { rev?: number } };
+          const current = getItem(cached, collection, itemId) as { _meta?: { rev?: number } } | undefined;
+          const rev = current?._meta?.rev ?? baseRev ?? 1;
+          const res = (await ItemsApi.patch(kitId, collection, itemId, { [field]: value, rev })) as { _meta?: { rev?: number } };
           return { rev: res?._meta?.rev };
         },
       ),
