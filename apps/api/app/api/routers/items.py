@@ -1,7 +1,6 @@
 """Item editing: create/patch/delete + reorder + coverage recompute + stale schedule."""
 from __future__ import annotations
 
-import time
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -10,9 +9,8 @@ from pydantic import BaseModel
 from app.api.deps import current_user, get_kit_or_404
 from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
-from app.domain.item_meta import is_protected
 from app.domain.ordering import FIRST_KEY, key_between, needs_rebalance, rebalance
-from app.persistence.memory import DB
+from app.persistence.store import get_store
 
 router = APIRouter()
 
@@ -34,7 +32,7 @@ def _recompute(kit_doc: dict) -> None:
 
 @router.post("/api/kits/{kit_id}/{collection}")
 async def create_item(kit_id: str, collection: str, body: dict, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -59,12 +57,13 @@ async def create_item(kit_id: str, collection: str, body: dict, user: dict = Dep
     else:
         kit["role"]["requirements"].append(item)
     _recompute(k)
+    await get_store().kits.save(k)
     return item
 
 
 @router.patch("/api/kits/{kit_id}/{collection}/{item_id}")
 async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -73,6 +72,7 @@ async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, use
         brief.update({kk: vv for kk, vv in body.items() if kk in ("summary", "what_they_do", "hiring_process")})
         kit.setdefault("_brief_meta", {"rev": 0})["rev"] += 1
         kit["_brief_meta"]["edited"] = True
+        await get_store().kits.save(k)
         return brief
     if collection not in ("questions", "flashcards", "requirements"):
         raise KitError(Codes.NOT_FOUND, "unknown collection")
@@ -97,12 +97,13 @@ async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, use
         # schedule keeps refs; nothing to strip on edit
         pass
     _recompute(k)
+    await get_store().kits.save(k)
     return item
 
 
 @router.delete("/api/kits/{kit_id}/{collection}/{item_id}")
 async def delete_item(kit_id: str, collection: str, item_id: str, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -118,6 +119,7 @@ async def delete_item(kit_id: str, collection: str, item_id: str, user: dict = D
     else:
         kit["role"]["requirements"] = [i for i in kit["role"]["requirements"] if i.get("id") != item_id]
     _recompute(k)
+    await get_store().kits.save(k)
     return {"ok": True}
 
 
@@ -129,7 +131,7 @@ class ReorderBody(BaseModel):
 
 @router.post("/api/kits/{kit_id}/questions/reorder")
 async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -164,4 +166,5 @@ async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_u
         for q, fresh in zip(scope, rebalance(len(scope))):
             q.setdefault("_meta", _meta_new("generated"))["order"] = fresh
     _recompute(k)
+    await get_store().kits.save(k)
     return item

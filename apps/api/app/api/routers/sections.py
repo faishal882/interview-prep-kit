@@ -11,14 +11,14 @@ from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
 from app.domain.merge import merge_category
 from app.jobs.runner import new_job
-from app.persistence.memory import DB
+from app.persistence.store import get_store
 
 router = APIRouter()
 
 
 @router.post("/api/kits/{kit_id}/sections/{section}/regenerate")
 async def regenerate(kit_id: str, section: str, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -29,8 +29,10 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
             proposal = {"summary": (kit.get("company_brief") or {}).get("summary", "") + " (regenerated proposal)",
                         "status": "proposal"}
             k.setdefault("proposals", {})["brief"] = proposal
+            await get_store().kits.save(k)
             return {"proposal": proposal}
         kit["company_brief"]["summary"] = (kit["company_brief"].get("summary") or "") + " (refreshed)"
+        await get_store().kits.save(k)
         return {"ok": True}
     if section == "schedule":
         from app.scheduling.allocator import allocate
@@ -38,6 +40,7 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
         days, _w = allocate(kit["questions"], reqs, kit["schedule"]["days_available"])
         kit["schedule"]["days"] = days
         k["schedule_stale"] = False
+        await get_store().kits.save(k)
         return {"ok": True, "warning": "manual schedule edits were replaced"}
     if section.startswith("questions:"):
         category = section.split(":", 1)[1]
@@ -57,16 +60,17 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
         kit["questions"] = others + merged
         reqs_all = [r["id"] for r in reqs]
         kit.setdefault("coverage", {})["uncovered_requirement_ids"] = compute_gaps(reqs_all, kit["questions"])
+        await get_store().kits.save(k)
         job = new_job(kit_id)
         job["status"] = "done"
-        DB.jobs[job["id"]] = job
+        await get_store().jobs.create(job)
         return {"ok": True, "job_id": job["id"]}
     raise KitError(Codes.NOT_FOUND, "unknown section")
 
 
 @router.post("/api/kits/{kit_id}/sections/brief/accept")
 async def accept_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -76,15 +80,17 @@ async def accept_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
     kit["company_brief"]["summary"] = proposal.get("summary", "")
     kit.setdefault("_brief_meta", {"rev": 0})["rev"] += 1
     k["proposals"].pop("brief", None)
+    await get_store().kits.save(k)
     return {"ok": True}
 
 
 @router.post("/api/kits/{kit_id}/sections/brief/reject")
 async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     if not k.get("kit"):
         raise KitError(Codes.NOT_FOUND, "kit not ready")
     (k.get("proposals") or {}).pop("brief", None)
+    await get_store().kits.save(k)
     return {"ok": True}
 
 
@@ -92,7 +98,7 @@ async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
 async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict = Depends(current_user)) -> dict:
     """Targeted generation: Questions for exactly one Requirement, nothing else touched."""
     from app.domain.item_meta import is_protected as _prot  # noqa: F401 (kept for clarity)
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -112,16 +118,17 @@ async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict 
     kit["questions"].append(item)
     reqs_all = [r["id"] for r in kit["role"]["requirements"]]
     kit.setdefault("coverage", {})["uncovered_requirement_ids"] = compute_gaps(reqs_all, kit["questions"])
+    await get_store().kits.save(k)
     job = new_job(kit_id)
     job["status"] = "done"
-    DB.jobs[job["id"]] = job
+    await get_store().jobs.create(job)
     return {"ok": True, "job_id": job["id"], "question_id": item["id"]}
 
 
 @router.patch("/api/kits/{kit_id}/schedule/days/{day}")
 async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Depends(current_user)) -> dict:
     """Edit a day's focus text (manual Schedule edits preserved until rebuild)."""
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -134,13 +141,14 @@ async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Dep
     if "question_ids" in body:
         valid = {q["id"] for q in kit.get("questions", [])}
         target["question_ids"] = [q for q in body["question_ids"] if q in valid]
+    await get_store().kits.save(k)
     return target
 
 
 @router.post("/api/kits/{kit_id}/schedule/move")
 async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
     """Move a Question to another day on the Schedule."""
-    k = get_kit_or_404(kit_id, user["id"])
+    k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
@@ -155,4 +163,5 @@ async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(c
     target = next(d for d in days if d.get("day") == to_day)
     if qid not in target["question_ids"]:
         target["question_ids"].append(qid)
+    await get_store().kits.save(k)
     return {"ok": True, "day": to_day}
