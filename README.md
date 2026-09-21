@@ -224,9 +224,14 @@ The only frontend environment variable is `API_ORIGIN` (see `apps/web/.env.examp
   cache (one entry per Kit, one for the list); the cache is the single source
   of truth; every mutation is optimistic with rollback.
 - Same-origin API: the browser only talks to the web app; `/api/*` is proxied
-  to the backend so cookies are first-party. Contract: types are generated from
-  the committed `apps/api/openapi.json` (`npm run generate:types` in
-  `apps/web`); `npm run web:test` fails on drift.
+  to the backend so cookies are first-party. Contract: every endpoint declares
+  a typed response model; the single committed OpenAPI document is
+  `apps/api/openapi.json` (no duplicate copy); frontend types are generated
+  into `lib/api-types.ts` (`npm run generate:types` in `apps/web`) and used
+  throughout the client — hand-written response duplicates are not allowed;
+  `npm run web:test` fails the drift check when a response shape changes
+  without regenerating types; a backend contract test fails on any untyped
+  response.
 - Error model: the uniform envelope is decoded once (`lib/errors.ts`) into
   typed errors; every surface shows message + reference id; a 401 raises one
   "session expired" flow back to login. Post-login redirects accept in-app

@@ -44,16 +44,16 @@ Rebuild the fetcher and crawler so they behave as the brief and the PRD require.
 
 ### Acceptance criteria
 
-- [ ] A URL that redirects (http→https, host→www, path→path/) returns the final page's content
-- [ ] A redirect to a private or loopback address is refused before any request to it is made
-- [ ] A disallowed path is not fetched; a missing `robots.txt` allows crawling; a server-error `robots.txt` disallows it; crawl delay is honoured
-- [ ] A body larger than the limit is aborted mid-stream, not after full download
-- [ ] `greenhouse.io.evil.example` is not treated as a hiring platform; a `.co.uk` company does not lead the crawl to other `.co.uk` sites
-- [ ] Non-globally-routable addresses (private, loopback, link-local, shared-address, IPv4-mapped) are refused; production refuses non-standard ports
-- [ ] Two concurrent callers to one host still respect the per-host rate limit
-- [ ] Trivially different URLs are fetched once; a page with thousands of links adds a bounded number to the queue
-- [ ] Cached pages expire and the cache never exceeds its bound
-- [ ] Fetcher, robots, guard and crawler tests pass; the batch command still completes on the fixture sites
+- [x] A URL that redirects (http→https, host→www, path→path/) returns the final page's content
+- [x] A redirect to a private or loopback address is refused before any request to it is made
+- [x] A disallowed path is not fetched; a missing `robots.txt` allows crawling; a server-error `robots.txt` disallows it; crawl delay is honoured
+- [x] A body larger than the limit is aborted mid-stream, not after full download
+- [x] `greenhouse.io.evil.example` is not treated as a hiring platform; a `.co.uk` company does not lead the crawl to other `.co.uk` sites
+- [x] Non-globally-routable addresses (private, loopback, link-local, shared-address, IPv4-mapped) are refused; production refuses non-standard ports
+- [x] Two concurrent callers to one host still respect the per-host rate limit
+- [x] Trivially different URLs are fetched once; a page with thousands of links adds a bounded number to the queue
+- [x] Cached pages expire and the cache never exceeds its bound
+- [x] Fetcher, robots, guard and crawler tests pass; the batch command still completes on the fixture sites
 
 ---
 
@@ -67,11 +67,11 @@ Make the research use what it finds. The company name comes from the description
 
 ### Acceptance criteria
 
-- [ ] A description with no company name yields the site's declared name in the Kit and in the discussion query
-- [ ] A fixture "about" page mentioning "coding" or "values" does not set a hiring signal; a fixture hiring page describing a take-home does
-- [ ] The research log names the hiring page found, or records that none exists
-- [ ] The no-hiring-page fixture site produces an honest Kit with no hiring-specific Questions
-- [ ] Enrichment tests pass
+- [x] A description with no company name yields the site's declared name in the Kit and in the discussion query
+- [x] A fixture "about" page mentioning "coding" or "values" does not set a hiring signal; a fixture hiring page describing a take-home does
+- [x] The research log names the hiring page found, or records that none exists
+- [x] The no-hiring-page fixture site produces an honest Kit with no hiring-specific Questions
+- [x] Enrichment tests pass
 
 ---
 
@@ -85,13 +85,13 @@ Harden the pipeline boundary and the batch command. Days validated to 1–60 wit
 
 ### Acceptance criteria
 
-- [ ] `days` of 0, −3 and 61 fail that Case with `INVALID_INPUT`; 1 and 60 succeed
-- [ ] Duplicate case ids are rejected or made unique with a recorded note; the output stays keyed one-to-one
-- [ ] A model item with difficulty 99 or no outline is clamped or dropped and the Kit still validates
-- [ ] A description beyond the model's limit is handled with no silently ignored tail
-- [ ] A hung provider triggers the per-Step deadline; the Case returns a valid partial Kit (`ok` with warnings) or `TIMEOUT` when none is possible
-- [ ] A malformed cases file fails cleanly before any work; an interrupted run never leaves a half-written output file
-- [ ] Sanitisation, deadline and batch tests pass; five sample Cases still finish within fifteen minutes
+- [x] `days` of 0, −3 and 61 fail that Case with `INVALID_INPUT`; 1 and 60 succeed
+- [x] Duplicate case ids are rejected or made unique with a recorded note; the output stays keyed one-to-one
+- [x] A model item with difficulty 99 or no outline is clamped or dropped and the Kit still validates
+- [x] A description beyond the model's limit is handled with no silently ignored tail
+- [x] A hung provider triggers the per-Step deadline; the Case returns a valid partial Kit (`ok` with warnings) or `TIMEOUT` when none is possible
+- [x] A malformed cases file fails cleanly before any work; an interrupted run never leaves a half-written output file
+- [x] Sanitisation, deadline and batch tests pass; five sample Cases still finish within fifteen minutes
 
 ---
 
@@ -105,10 +105,10 @@ Bring the scheduler in line with its specification: balance minutes across days 
 
 ### Acceptance criteria
 
-- [ ] Day totals differ by no more than the largest single Question's minutes where the Question count allows
-- [ ] Review days repeat the highest-weight Questions at expanding intervals
-- [ ] All existing scheduler property tests still pass; new properties cover minute balance and review spacing
-- [ ] 1-day, 60-day and zero-Question cases still produce valid Schedules
+- [x] Day totals differ by no more than the largest single Question's minutes where the Question count allows
+- [x] Review days repeat the highest-weight Questions at expanding intervals
+- [x] All existing scheduler property tests still pass; new properties cover minute balance and review spacing
+- [x] 1-day, 60-day and zero-Question cases still produce valid Schedules
 
 ---
 
@@ -122,11 +122,11 @@ Replace the fractional-index algorithm with a correct one, implemented in Python
 
 ### Acceptance criteria
 
-- [ ] Property tests over random insert sequences (front, back, between) show strict ordering and uniqueness in both languages
-- [ ] Both languages produce identical keys for the shared vectors
-- [ ] 1,000 repeated front-inserts and 1,000 repeated bisections stay valid and bounded in length
-- [ ] Existing kits with old keys still sort and can be reordered
-- [ ] Drag-reorder, the Move menu and cross-Category moves keep order across reload
+- [x] Property tests over random insert sequences (front, back, between) show strict ordering and uniqueness in both languages
+- [x] Both languages produce identical keys for the shared vectors
+- [x] 1,000 repeated front-inserts and 1,000 repeated bisections stay valid and bounded in length
+- [x] Existing kits with old keys still sort and can be reordered
+- [x] Drag-reorder, the Move menu and cross-Category moves keep order across reload
 
 ---
 
@@ -140,13 +140,13 @@ A production model gateway: one pooled client with the key in a header; a reques
 
 ### Acceptance criteria
 
-- [ ] Programming errors fail immediately with no sleeping or retry
-- [ ] Rate-limit responses are retried with the provider's hint; server errors with backoff; both bounded
-- [ ] Two concurrent runs together stay within the configured request and token rates
-- [ ] A truncated response triggers one smaller retry; a schema-invalid response gets a repair attempt that is itself protected by retry
-- [ ] The key never appears in any logged address or error
-- [ ] With no key and no explicit fake setting, startup (server) and the batch command fail fast with `MISSING_CREDENTIALS`
-- [ ] Gateway tests pass with the scripted provider
+- [x] Programming errors fail immediately with no sleeping or retry
+- [x] Rate-limit responses are retried with the provider's hint; server errors with backoff; both bounded
+- [x] Two concurrent runs together stay within the configured request and token rates
+- [x] A truncated response triggers one smaller retry; a schema-invalid response gets a repair attempt that is itself protected by retry
+- [x] The key never appears in any logged address or error
+- [x] With no key and no explicit fake setting, startup (server) and the batch command fail fast with `MISSING_CREDENTIALS`
+- [x] Gateway tests pass with the scripted provider
 
 ---
 
@@ -160,12 +160,12 @@ Introduce the repository layer and move the server onto MongoDB: users, sessions
 
 ### Acceptance criteria
 
-- [ ] Restarting the server preserves accounts, sessions, Kits, edits and practice progress
-- [ ] The same repository contract suite passes against both in-memory and MongoDB implementations
-- [ ] Expired sessions and cache entries are removed automatically
-- [ ] Production startup fails with one message listing every missing or invalid setting; an unreachable database also fails startup
-- [ ] `npm run evaluate` still works with no database and no extra setup
-- [ ] The local composition provides the database; the README states how to run against it
+- [x] Restarting the server preserves accounts, sessions, Kits, edits and practice progress
+- [x] The same repository contract suite passes against both in-memory and MongoDB implementations
+- [x] Expired sessions and cache entries are removed automatically
+- [x] Production startup fails with one message listing every missing or invalid setting; an unreachable database also fails startup
+- [x] `npm run evaluate` still works with no database and no extra setup
+- [x] The local composition provides the database; the README states how to run against it
 
 ---
 
@@ -179,12 +179,12 @@ Replace fire-and-forget background execution with the database-backed queue from
 
 ### Acceptance criteria
 
-- [ ] With the limit at 2, a third simultaneous generation waits rather than running
-- [ ] Killing the worker mid-run leads to one automatic requeue, then a retryable failure — verified against the real database and without a server restart
-- [ ] A hung job is stopped by its deadline and marked accordingly
-- [ ] A double trigger for one Kit yields one active job; a second concurrent generation by one user is queued or refused per the per-user limit
-- [ ] A retried generation does not re-fetch pages already cached
-- [ ] Queue tests pass
+- [x] With the limit at 2, a third simultaneous generation waits rather than running
+- [x] Killing the worker mid-run leads to one automatic requeue, then a retryable failure — verified against the real database and without a server restart
+- [x] A hung job is stopped by its deadline and marked accordingly
+- [x] A double trigger for one Kit yields one active job; a second concurrent generation by one user is queued or refused per the per-user limit
+- [x] A retried generation does not re-fetch pages already cached
+- [x] Queue tests pass
 
 ---
 
@@ -198,13 +198,13 @@ Make every write safe. Typed create and patch schemas per collection with unknow
 
 ### Acceptance criteria
 
-- [ ] A patch that sets an unknown field, a bad Category, difficulty 999, a missing Requirement reference or a new `id` is rejected with a clear error and changes nothing
-- [ ] A request with an out-of-date revision is rejected with a conflict
-- [ ] Deleting a Requirement leaves no dangling reference anywhere and flags any Question left uncovered
-- [ ] Pinning, reordering or editing a Flashcard does not raise the stale-Schedule banner; adding, removing or materially changing a Question or Requirement does
-- [ ] After deleting a Question or moving one between days, each day's minutes equal the sum of its Questions' minutes
-- [ ] The export of a valid Kit contains no internal metadata; an invalid Kit yields a clear error, not a payload
-- [ ] Integrity, schema and export tests pass
+- [x] A patch that sets an unknown field, a bad Category, difficulty 999, a missing Requirement reference or a new `id` is rejected with a clear error and changes nothing
+- [x] A request with an out-of-date revision is rejected with a conflict
+- [x] Deleting a Requirement leaves no dangling reference anywhere and flags any Question left uncovered
+- [x] Pinning, reordering or editing a Flashcard does not raise the stale-Schedule banner; adding, removing or materially changing a Question or Requirement does
+- [x] After deleting a Question or moving one between days, each day's minutes equal the sum of its Questions' minutes
+- [x] The export of a valid Kit contains no internal metadata; an invalid Kit yields a clear error, not a payload
+- [x] Integrity, schema and export tests pass
 
 ---
 
@@ -218,15 +218,15 @@ Regeneration that actually regenerates, reusing the pipeline's own steps: the br
 
 ### Acceptance criteria
 
-- [ ] Regenerating a Category calls the model, replaces only unprotected items, and every new Question has a genuine prompt and outline
-- [ ] A protected item (user-written, edited, pinned, or moved in) always survives; an edit made mid-run survives the commit (tested with a concurrent edit)
-- [ ] Regenerated Questions do not duplicate retained ones
-- [ ] An edited brief yields a genuine Proposal that can be accepted or rejected; an untouched brief is replaced directly
-- [ ] "Generate a Question for this" adds Question(s) covering exactly that Requirement and changes nothing else
-- [ ] A provider failure leaves the Kit byte-for-byte unchanged and the job `failed` with a message
-- [ ] Coverage and Gaps are recomputed after every regeneration
-- [ ] No placeholder text such as "(refreshed)" or "Regenerated … question" remains in the code
-- [ ] Regeneration tests pass with the scripted model
+- [x] Regenerating a Category calls the model, replaces only unprotected items, and every new Question has a genuine prompt and outline
+- [x] A protected item (user-written, edited, pinned, or moved in) always survives; an edit made mid-run survives the commit (tested with a concurrent edit)
+- [x] Regenerated Questions do not duplicate retained ones
+- [x] An edited brief yields a genuine Proposal that can be accepted or rejected; an untouched brief is replaced directly
+- [x] "Generate a Question for this" adds Question(s) covering exactly that Requirement and changes nothing else
+- [x] A provider failure leaves the Kit byte-for-byte unchanged and the job `failed` with a message
+- [x] Coverage and Gaps are recomputed after every regeneration
+- [x] No placeholder text such as "(refreshed)" or "Regenerated … question" remains in the code
+- [x] Regeneration tests pass with the scripted model
 
 ---
 
@@ -240,15 +240,15 @@ Harden authentication and the API edge: cookie flags by environment (secure in p
 
 ### Acceptance criteria
 
-- [ ] In production the session cookie is `Secure` and `HttpOnly`; in development it is not
-- [ ] Registration returns a clear "closed" response by default; the operator command creates a working user; the reopening setting works
-- [ ] The eleventh Kit created in a day, the 51st stored Kit, and a second concurrent generation are each refused with a clear error under the default quotas
-- [ ] Repeated wrong-password attempts for one account from one address are throttled; wrong-email guesses from elsewhere do not lock out the real user; the throttle store is bounded
-- [ ] A 1 MB password or an oversized body/description is rejected without heavy work
-- [ ] A mutating request without an allowed origin is rejected in production
-- [ ] A forced server error returns the generic message and reference id, with no exception type
-- [ ] Kit and job responses contain no internal fields
-- [ ] Security tests pass
+- [x] In production the session cookie is `Secure` and `HttpOnly`; in development it is not
+- [x] Registration returns a clear "closed" response by default; the operator command creates a working user; the reopening setting works
+- [x] The eleventh Kit created in a day, the 51st stored Kit, and a second concurrent generation are each refused with a clear error under the default quotas
+- [x] Repeated wrong-password attempts for one account from one address are throttled; wrong-email guesses from elsewhere do not lock out the real user; the throttle store is bounded
+- [x] A 1 MB password or an oversized body/description is rejected without heavy work
+- [x] A mutating request without an allowed origin is rejected in production
+- [x] A forced server error returns the generic message and reference id, with no exception type
+- [x] Kit and job responses contain no internal fields
+- [x] Security tests pass
 
 ---
 
@@ -262,11 +262,11 @@ The frontend security pass: the post-login redirect accepts only in-app paths (r
 
 ### Acceptance criteria
 
-- [ ] `returnTo` values such as an absolute URL or `//host` are ignored and the user lands on the default page
-- [ ] Every response carries the defined security headers, and the app still works under the content security policy
-- [ ] The dependency audit reports no high-severity advisory in production dependencies
-- [ ] No unused proxy handler remains; unauthenticated navigation and the e2e journey still pass
-- [ ] Redirect and header tests pass
+- [x] `returnTo` values such as an absolute URL or `//host` are ignored and the user lands on the default page
+- [x] Every response carries the defined security headers, and the app still works under the content security policy
+- [x] The dependency audit reports no high-severity advisory in production dependencies
+- [x] No unused proxy handler remains; unauthenticated navigation and the e2e journey still pass
+- [x] Redirect and header tests pass
 
 ---
 
@@ -280,11 +280,11 @@ Give every endpoint a typed response model so the OpenAPI document describes rea
 
 ### Acceptance criteria
 
-- [ ] A test enumerates every OpenAPI operation and fails if any response is untyped
-- [ ] Only one committed OpenAPI document exists; the frontend generates types from it
-- [ ] The UI compiles against generated types with no hand-written response duplicates
-- [ ] The drift check fails when a response shape changes without regenerating types
-- [ ] Frontend type check, tests and build pass
+- [x] A test enumerates every OpenAPI operation and fails if any response is untyped
+- [x] Only one committed OpenAPI document exists; the frontend generates types from it
+- [x] The UI compiles against generated types with no hand-written response duplicates
+- [x] The drift check fails when a response shape changes without regenerating types
+- [x] Frontend type check, tests and build pass
 
 ---
 
