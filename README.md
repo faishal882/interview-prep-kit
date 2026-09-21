@@ -11,9 +11,15 @@ editable interview preparation Kit (Appendix A of the brief).
   strict models, `hypothesis` property tests and FastAPI's OpenAPI schema give the most
   leverage. The mandated `npm run evaluate` / `npm run setup` commands work from the root
   `package.json` as thin wrappers over the Python batch runner.
-- **DB: MongoDB** document per Kit (collections `users`, `sessions`, `kits`, `jobs`,
-  `practice_progress`, `fetch_cache`); in-memory repositories back the CLI and tests so the
-  batch needs no database.
+- **DB: MongoDB** when `MONGODB_URI` is set (collections `users`, `sessions`
+  (TTL), `kits`, `jobs` (partial unique index: one active job per Kit), `practice`,
+  `page_cache` (TTL), `throttles`); the same behavioural contract suite runs against
+  the in-memory and MongoDB implementations. In-memory repositories back the CLI and
+  tests so the batch needs no database. Run the database locally with
+  `docker compose up -d mongo`, then `MONGODB_URI=mongodb://127.0.0.1:27017 npm run dev`
+  (or `npm run dev:mongo`). Restarting the server preserves everything; production
+  startup refuses to start without a database, model key and allowed origins, naming
+  every problem. Create users with `npm run users:create -- --email you@x.co --password '...'`.
 - **LLM: one Gemini Flash-tier model** behind the structured-generation interface
   (`GEMINI_MODEL` env-pickable). Only `GEMINI_API_KEY` is required.
 - **Decisions: heuristics + the same LLM** — classification, link ranking and hiring-signal

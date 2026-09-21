@@ -159,7 +159,8 @@ def _no_creds_settings(monkeypatch):
     import app.api.routers.kits as kits_mod
     import app.cli.evaluate as evalmod
     stub = SimpleNamespace(FAKE_LLM="", GEMINI_API_KEY="", GEMINI_MODEL="m",
-                           ALLOW_PRIVATE_URLS=False, MAX_CRAWL_PAGES=4, CRAWL_DEPTH=1)
+                           ALLOW_PRIVATE_URLS=False, MAX_CRAWL_PAGES=4, CRAWL_DEPTH=1,
+                           STEP_TIMEOUT_S=60, OVERALL_TIMEOUT_S=240, MAX_JD_CHARS=30000)
     monkeypatch.delenv("FAKE_LLM", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setattr(kits_mod, "get_settings", lambda: stub)

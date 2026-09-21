@@ -139,11 +139,14 @@ def test_reorder_moves_and_rebalances_long_keys():
                   key=lambda q: q["_meta"]["order"])
     assert tech[0]["id"] == q2["id"]
     # force a long key directly, then reorder: the category is rebalanced to short keys
+    import asyncio
     from app.domain.ordering import KEY_LENGTH_LIMIT
-    from app.persistence.memory import DB
-    doc = DB.kits[kit_id]
+    from app.persistence.store import get_store
+    _store = get_store()
+    doc = asyncio.run(_store.kits.get(kit_id))
     tech_qs = [q for q in doc["kit"]["questions"] if q["category"] == "technical"]
     tech_qs[0]["_meta"]["order"] = "h" + "0" * (KEY_LENGTH_LIMIT + 5)
+    asyncio.run(_store.kits.save(doc))
     c.post(f"/api/kits/{kit_id}/questions/reorder", json={"id": tech_qs[1]["id"], "after_id": None})
     k2 = c.get(f"/api/kits/{kit_id}").json()
     orders = [q["_meta"]["order"] for q in k2["kit"]["questions"] if q["category"] == "technical"]

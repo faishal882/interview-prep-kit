@@ -110,15 +110,17 @@ def test_resolve_redirect_rejects_bad_targets():
 
 
 def test_cache_bounded_and_expiring():
-    c = PageCache(maxsize=2, ttl_s=0.05)
-    c.put("a", {"t": 1})
-    c.put("b", {"t": 2})
-    c.put("c", {"t": 3})
-    assert len(c) == 2
-    assert c.get("a") is None
-    assert c.get("b") == {"t": 2}
-    time.sleep(0.06)
-    assert c.get("b") is None
+    async def go():
+        c = PageCache(maxsize=2, ttl_s=0.05)
+        await c.put("a", {"t": 1})
+        await c.put("b", {"t": 2})
+        await c.put("c", {"t": 3})
+        assert len(c) == 2
+        assert await c.get("a") is None
+        assert await c.get("b") == {"t": 2}
+        time.sleep(0.06)
+        assert await c.get("b") is None
+    asyncio.run(go())
 
 
 def test_redirect_chain_followed_to_final_content():
