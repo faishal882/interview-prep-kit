@@ -48,7 +48,8 @@ async def summary(kit_id: str, user: dict = Depends(current_user)) -> dict:
     kit = k.get("kit") or {}
     store = get_store()
     cards = kit.get("flashcards", [])
-    covered = sum(1 for c in cards if await store.practice.reviews(f"{kit_id}:{c['id']}"))
+    hits = [bool(await store.practice.reviews(f"{kit_id}:{c['id']}")) for c in cards]
+    covered = sum(1 for h in hits if h)
     return {"total": len(cards), "covered": covered, "uncovered": len(cards) - covered}
 
 
@@ -67,7 +68,8 @@ async def weak_spots(kit_id: str, user: dict = Depends(current_user)) -> dict:
     for r in reqs:
         fids = by_req_f.get(r["id"], [])
         practised = [fid for fid in fids if await store.practice.reviews(f"{kit_id}:{fid}")]
-        low = any((await store.practice.reviews(f"{kit_id}:{fid}"))[-1].get("confidence", 3) <= 2 for fid in practised)
+        lasts = [(await store.practice.reviews(f"{kit_id}:{fid}"))[-1] for fid in practised]
+        low = any(r.get("confidence", 3) <= 2 for r in lasts)
         reasons = []
         if not practised:
             reasons.append("never practised")
