@@ -229,7 +229,9 @@ The only frontend environment variable is `API_ORIGIN` (see `apps/web/.env.examp
   `apps/web`); `npm run web:test` fails on drift.
 - Error model: the uniform envelope is decoded once (`lib/errors.ts`) into
   typed errors; every surface shows message + reference id; a 401 raises one
-  "session expired" flow back to login.
+  "session expired" flow back to login. Post-login redirects accept in-app
+  paths only; every response carries CSP, framing, referrer, sniffing and
+  permissions headers; dependencies audit clean at release.
 
 ### State model for edits and regeneration
 
