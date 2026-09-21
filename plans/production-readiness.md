@@ -338,8 +338,8 @@ Final reconciliation: the README, architecture document and decision records des
 
 ### Acceptance criteria
 
-- [ ] Every README claim about persistence, jobs, regeneration, security and observability is true of the code
-- [ ] Known limitations are listed plainly
-- [ ] The decision records match the implementation; the new registration record exists
-- [ ] No unused settings, placeholder generators, dead handlers or duplicated contract files remain
-- [ ] A reader can go from a clean clone to a running, verified system using only the README and the runbook
+- [x] Every README claim about persistence, jobs, regeneration, security and observability is true of the code
+- [x] Known limitations are listed plainly
+- [x] The decision records match the implementation; the new registration record exists
+- [x] No unused settings, placeholder generators, dead handlers or duplicated contract files remain
+- [x] A reader can go from a clean clone to a running, verified system using only the README and the runbook

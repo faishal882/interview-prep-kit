@@ -203,16 +203,26 @@ then step failure. Rate limits → backoff with jitter, then recorded step failu
   sharing one atomic claim; stale jobs requeued once, then retryable).
 - Auth: login-only web app; registration closed by default and users are provisioned
   with `npm run users:create -- --email you@x.co --password '...'` (`REGISTRATION_OPEN=true`
-  reopens it explicitly). Session cookies are `Secure` in production. Per-user quotas
-  default to 10 Kits/day, 50 stored Kits and 1 concurrent generation; login is throttled
-  per client address plus account in a bounded, expiring store; Argon2id only, hashed
-  off the request loop, passwords bounded to 200 chars; mutating requests in production
-  require an allowed origin and startup refuses to run without the setting.
+  reopens it explicitly; see ADR-0005). Session cookies are `Secure` in production.
+  Per-user quotas default to 10 Kits/day, 50 stored Kits and 1 concurrent generation;
+  login is throttled per client address plus account in a bounded, expiring store;
+  Argon2id only, hashed off the request loop, passwords bounded to 200 chars; mutating
+  requests in production require an allowed origin and startup refuses to run without
+  the setting.
+- Persistence and jobs are real: MongoDB when `MONGODB_URI` is set; regeneration calls
+  the model through durable jobs (ADR-0002, ADR-0004). The batch command stays
+  in-memory and needs no database.
+- Observability: structured JSON logs always on; liveness/readiness probes; optional
+  OpenTelemetry off by default (`docs/runbook.md`, local `--profile obs`).
+- Delivery: API Dockerfile, production compose, Terraform, `npm run deploy` /
+  `npm run rollback`, `npm run verify` — no hosted CI.
 - `failed` batch status reserved for no-valid-Kit cases (`INVALID_INPUT`, `LLM_UNAVAILABLE`,
   `KIT_INVALID`, `TIMEOUT`, `MISSING_CREDENTIALS`); unreachable company is `ok`.
 - Single-provider LLM limits are volatile → backoff + limiter; verify at build time.
-- No headless browser (JS-only pages are a documented gap). No DNS-rebinding defence beyond
-  redirect re-validation. CloudFront→EC2 hop and secret manager out of scope.
+- **Known limitations (accepted):** no headless browser (JS-only pages are a gap);
+  DNS-rebinding window between guard check and connect; CloudFront→EC2 is HTTP on
+  port 80 (HTTPS only at the front door); secrets live in `.env` on the instance
+  (chmod 600), not a secret manager; single EC2 instance; no hosted CI.
 - Appendix B's example shows unreachable company as failure; this build records it as `ok`
   per the FAQ ("a missing hiring page is not a failure") — a one-line switch if needed.
 

@@ -1,6 +1,7 @@
 # Architecture — AI Interview Prep Kit
 
-Status: design v1 (2026-09-20). Source of truth for the build; the README will be derived from this.
+Status: implemented (2026-09-21). Source of truth for what the code does; README
+and this document should agree. Vocabulary: `CONTEXT.md`.
 
 ## 1. Goals and constraints
 
@@ -297,7 +298,9 @@ POST   /api/kits/{id}/questions/reorder      {id, category, after_id}
 POST   /api/kits/{id}/sections/{brief|questions:<category>|schedule}/regenerate
 GET    /api/kits/{id}/practice/queue         POST …/practice/reviews    GET …/practice/summary
 POST   /api/kits/{id}/practice/check         (creative feature, 7)
-GET    /api/health
+GET    /api/health                 (liveness alias)
+GET    /api/health/live
+GET    /api/health/ready           (database + model key)
 ```
 
 ## 7. State model: generated, edited, pinned
@@ -432,8 +435,8 @@ infra/
 | `ENV` | api | `development` (relaxes dev-only behaviour) or `production` (default) |
 | `ALLOW_PRIVATE_URLS` | api, CLI | explicit opt-out of the private/loopback URL block; **default false**; the CLI sets it itself |
 | `MONGODB_URI` | api | database |
-| `SESSION_SECRET` | api | signing/hashing key for sessions |
-| `ALLOWED_ORIGINS` | api | CSRF Origin check |
+| `REGISTRATION_OPEN` | api | self-service registration; **default false** — operators provision users |
+| `ALLOWED_ORIGINS` | api | CSRF Origin check (required in production) |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | api, CLI | generation + structured decisions — **the only required key** (missing → fail fast, `MISSING_CREDENTIALS`) |
 | `SEARCH_API_KEY` | api, CLI | optional public-discussion search |
 | `MAX_CRAWL_PAGES`, `CRAWL_DEPTH`, `MAX_CONCURRENT_RUNS` | api, CLI | budgets |
@@ -449,7 +452,7 @@ The CLI needs only the Gemini key. All documented in `.env.example`.
 - **Integration:** full `pipeline.run` with a `FakeLLM` and fixture sites on an ephemeral localhost server: `acme/` (buried hiring page), `nohiring/` (none), 404 site, timeout site, plus a two-line JD, invalid-JSON LLM output, 429 storm, and a second-pass case where the fake LLM initially misses a `must`.
 - **Contract:** every produced kit validates against `fixtures/kit.schema.json`; batch output validates against Appendix B.
 - **Frontend:** Vitest for optimistic-edit/reorder hooks and error states; one Playwright e2e (register → create → edit → regenerate preserves edit).
-- No CI service (deliberately); `npm test` runs everything locally.
+- No hosted CI (deliberately); `npm run verify` is the local quality gate (API tests, web typecheck + tests/drift, high-severity audits).
 
 ## 13. Brief §10 edge cases → behaviour
 
@@ -476,15 +479,8 @@ The CLI needs only the Gemini key. All documented in `.env.example`.
 2. **Single-provider LLM limits change.** One quota to watch; backoff + recorded step failures; verify limits at build time.
 3. **Unreachable-company semantics** (6.10) — one-line switch if graders expect `COMPANY_UNREACHABLE`.
 4. **Single instance:** in-process jobs die with the process (recovery marks them retryable); Mongo backups are manual.
-5. **Known gaps (accepted):** DNS-rebinding window, CloudFront→EC2 plaintext hop, no secret manager, no CI.
+5. **Known gaps (accepted):** DNS-rebinding window between URL-guard check and connect; CloudFront→EC2 plaintext HTTP hop; no secret manager (`.env` on the instance); no hosted CI (`npm run verify` only); single EC2 instance.
 
 ## 16. Build order
 
-1. `domain/`, `scheduling/`, `coverage/`, `validation/`, `practice/` with tests (unit + property).
-2. Pipeline + `FakeLLM` + CLI + fixture sites; OTel spans added as steps are written.
-3. Real LLM adapter, crawler, discussion search.
-4. API: auth, jobs, kits, items, regeneration merge.
-5. Frontend: generation progress → builder → practice → answer check.
-6. Terraform, deploy, README, walkthrough video.
-
-Time-box infra to ~½ day; fallback is the same compose file on a bare EC2.
+Completed via `plans/production-readiness.md` (phases 1–16). Day-to-day: `npm run setup`, `npm run verify`, see `docs/runbook.md` for deploy.

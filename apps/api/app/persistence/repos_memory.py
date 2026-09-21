@@ -230,11 +230,6 @@ class MemoryStore:
         self.throttles = MemoryThrottles()
 
     @property
-    def jobs_raw(self) -> dict:
-        """Raw job mapping for the legacy runner shim (phase 8 removes it)."""
-        return self.jobs._jobs
-
-    @property
     def durable(self) -> bool:
         return False
 

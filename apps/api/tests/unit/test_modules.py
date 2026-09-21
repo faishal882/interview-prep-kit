@@ -1,11 +1,10 @@
-"""Grounding, classification, ordering, merge, url-guard, robots, prioritizer, dedupe, jobs."""
+"""Grounding, classification, ordering, merge, url-guard, prioritizer, dedupe."""
 import time
 
 from app.coverage.checker import compute_gaps
 from app.domain.merge import merge_category
 from app.domain.ordering import key_between
-from app.jobs.runner import active_job_for, claim_stale, new_job
-from app.persistence.memory import MemoryDB
+from app.persistence.repos_base import dedupe_key
 from app.pipeline.steps.classify import classify_kind, classify_priority
 from app.pipeline.steps.grounding import is_verbatim
 from app.practice.prioritizer import order_queue
@@ -76,21 +75,13 @@ def test_prioritizer_unseen_before_mastered():
 
 
 def test_dedupe_key_normalisation():
-    k1 = MemoryDB.dedupe_key("u", "Hello  World", "http://x/", 5)
-    k2 = MemoryDB.dedupe_key("u", "hello world", "http://x/", 5)
-    k3 = MemoryDB.dedupe_key("u", "hello world", "http://x/", 6)
+    k1 = dedupe_key("u", "Hello  World", "http://x/", 5)
+    k2 = dedupe_key("u", "hello world", "http://x/", 5)
+    k3 = dedupe_key("u", "hello world", "http://x/", 6)
     assert k1 == k2 and k1 != k3
 
 
-def test_job_claim_requeue_once_then_fail():
-    db = MemoryDB()
-    j = new_job("k1")
-    j["status"] = "running"
-    j["heartbeat"] = time.time() - 100
-    db.jobs[j["id"]] = j
-    claim_stale(db)
-    assert j["status"] == "pending" and j["attempts"] == 1
-    j["status"] = "running"
-    j["heartbeat"] = time.time() - 100
-    claim_stale(db)
-    assert j["status"] == "failed" and j["retryable"]
+def test_gaps_empty_when_all_covered():
+    reqs = [{"id": "r1"}, {"id": "r2"}]
+    qs = [{"requirement_ids": ["r1", "r2"]}]
+    assert compute_gaps(reqs, qs) == []
