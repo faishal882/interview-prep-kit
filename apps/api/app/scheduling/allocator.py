@@ -1,4 +1,10 @@
-"""Deterministic schedule allocator (pure)."""
+"""Deterministic schedule allocator (pure).
+
+Weight orders material (harder, higher-priority first); contiguous
+minute-balanced partitions keep day totals close while preserving that order.
+Fewer questions than days yields one question per day in weight order, then
+Review days repeating top-weight questions at expanding intervals.
+"""
 from __future__ import annotations
 
 MINUTES: dict[tuple[str, int], int] = {
@@ -16,6 +22,84 @@ def _weight(q: dict, prio: dict[str, str]) -> int:
     for rid in q.get("requirement_ids", []):
         w = max(w, 2 if prio.get(rid) == "must" else 1)
     return int(diff) * w
+
+
+def _prune(pairs: set[tuple[int, int]]) -> set[tuple[int, int]]:
+    """Keep pareto-optimal (min, max) day-total pairs: no other pair is
+    better-or-equal on both ends."""
+    out = set()
+    for mn, mx in pairs:
+        if any(omn >= mn and omx <= mx and (omn, omx) != (mn, mx) for omn, omx in pairs):
+            continue
+        out.add((mn, mx))
+    return out
+
+
+def _focus(day_no: int, q: dict, req_text: dict[str, str], review: bool = False) -> str:
+    tag = "review: " if review else ""
+    src = req_text.get((q.get("requirement_ids") or [""])[0], "") or q.get("prompt", "")
+    width = 60 if review else 80
+    return f"Day {day_no} — {tag}{q.get('category')}: {src[:width]}"
+
+
+def _balanced_split(sizes: list[int], days: int) -> list[tuple[int, int]]:
+    """Contiguous non-empty index ranges minimizing max-min day total.
+
+    With at least as many items as days this keeps day totals within one
+    largest-item of each other. Deterministic.
+    """
+    n = len(sizes)
+    prefix = [0]
+    for s in sizes:
+        prefix.append(prefix[-1] + s)
+    dp: list[list[set[tuple[int, int]]]] = [[set() for _ in range(n + 1)] for _ in range(days + 1)]
+    for i in range(1, n + 1):
+        dp[1][i] = {(prefix[i], prefix[i])}
+    for k in range(2, days + 1):
+        for i in range(k, n + 1):
+            cand = set()
+            for j in range(k - 1, i):
+                seg = prefix[i] - prefix[j]
+                for pmn, pmx in dp[k - 1][j]:
+                    cand.add((min(pmn, seg), max(pmx, seg)))
+            dp[k][i] = _prune(cand)
+    want = min(dp[days][n], key=lambda t: (t[1] - t[0], t[1], t[0]))
+    ranges: list[tuple[int, int]] = []
+    k, i = days, n
+    while k > 1:
+        for j in range(k - 1, i):
+            seg = prefix[i] - prefix[j]
+            for pmn, pmx in sorted(dp[k - 1][j]):
+                if (min(pmn, seg), max(pmx, seg)) == want:
+                    ranges.append((j, i))
+                    want = (pmn, pmx)
+                    i, k = j, k - 1
+                    break
+            else:
+                continue
+            break
+    ranges.append((0, i))
+    ranges.reverse()
+    return ranges
+    tag = "review: " if review else ""
+    src = req_text.get((q.get("requirement_ids") or [""])[0], "") or q.get("prompt", "")
+    width = 60 if review else 80
+    return f"Day {day_no} — {tag}{q.get('category')}: {src[:width]}"
+
+
+def _review_sequence(ordered: list[dict], needed: int) -> list[dict]:
+    """Top-weight repeats in expanding cycles: q0 | q0,q1 | q0,q1,q2 | ….
+
+    Repeats of any one question are spaced non-decreasingly apart, and the
+    first review always revisits the highest-weight question.
+    """
+    out: list[dict] = []
+    cycle = 1
+    total = len(ordered)
+    while len(out) < needed:
+        out.extend(ordered[: min(cycle, total)])
+        cycle += 1
+    return out[:needed]
 
 
 def allocate(
@@ -50,42 +134,31 @@ def allocate(
     if days == 1:
         ids = [q["id"] for q in ordered]
         total = sum(minutes_of[i] for i in ids)
-        top = ordered[0]
-        focus = f"Day 1 — {top.get('category')}: {(req_text.get((top.get('requirement_ids') or [''])[0], top.get('prompt', '')) or '')[:80]}"
-        return [{"day": 1, "focus": focus, "question_ids": ids, "minutes": total}], warnings
+        return [{"day": 1, "focus": _focus(1, ordered[0], req_text),
+                 "question_ids": ids, "minutes": total}], warnings
 
     if len(ordered) >= days:
-        # front-loaded split: earlier days get the extra questions; ordered
-        # desc by weight so harder/high-priority material lands early.
-        base, rem = divmod(len(ordered), days)
-        buckets: list[list[dict]] = []
-        idx = 0
-        for d in range(days):
-            size = base + (1 if d < rem else 0)
-            buckets.append(ordered[idx: idx + size])
-            idx += size
+        # optimal contiguous minute-balanced partition of the weight-ordered
+        # list: day totals stay within one largest-question of each other
+        # while harder material never lands later than easier material.
+        sizes = [minutes_of[q["id"]] for q in ordered]
         out = []
-        for i, bucket in enumerate(buckets):
+        for d, (a, b) in enumerate(_balanced_split(sizes, days)):
+            bucket = ordered[a:b]
             ids = [q["id"] for q in bucket]
             total = sum(minutes_of[qid] for qid in ids)
-            top = bucket[0]
-            focus = f"Day {i+1} — {top.get('category')}: {(req_text.get((top.get('requirement_ids') or [''])[0], '') or top.get('prompt', ''))[:80]}"
-            out.append({"day": i + 1, "focus": focus, "question_ids": ids, "minutes": total})
+            out.append({"day": d + 1, "focus": _focus(d + 1, bucket[0], req_text),
+                        "question_ids": ids, "minutes": total})
     else:
-        # Q < N: one question per day in weight order, then spaced-review days
+        # Q < N: one question per day in weight order, then expanding review days
         out = []
         for i, q in enumerate(ordered):
-            focus = f"Day {i+1} — {q.get('category')}: {(req_text.get((q.get('requirement_ids') or [''])[0], '') or q.get('prompt', ''))[:80]}"
-            out.append({"day": i + 1, "focus": focus, "question_ids": [q["id"]], "minutes": minutes_of[q["id"]]})
-        # expanding-interval review days repeating highest-weight questions
-        gaps = [1, 2, 4]
-        qi = 0
-        for d in range(len(ordered), days):
-            q = ordered[qi % len(ordered)]
-            focus = f"Day {d+1} — review: {q.get('category')}: {(req_text.get((q.get('requirement_ids') or [''])[0], '') or q.get('prompt', ''))[:60]}"
-            out.append({"day": d + 1, "focus": focus, "question_ids": [q["id"]], "minutes": minutes_of[q["id"]]})
-            if (d - len(ordered) + 1) in gaps or True:
-                qi += 1  # cycle through top questions; expanding interval approximated
+            out.append({"day": i + 1, "focus": _focus(i + 1, q, req_text),
+                        "question_ids": [q["id"]], "minutes": minutes_of[q["id"]]})
+        for j, q in enumerate(_review_sequence(ordered, days - len(ordered))):
+            d = len(ordered) + j
+            out.append({"day": d + 1, "focus": _focus(d + 1, q, req_text, review=True),
+                        "question_ids": [q["id"]], "minutes": minutes_of[q["id"]]})
 
     avg = sum(d["minutes"] for d in out) / max(days, 1)
     if avg > 180:
