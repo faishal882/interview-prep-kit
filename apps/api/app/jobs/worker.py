@@ -49,14 +49,17 @@ def server_deps() -> dict:
 
 async def execute_generation(job: dict, store) -> None:
     """Run a generation job to a terminal state, persisting progress."""
+    from app.observability import record_metric, set_job_id, span
     from app.pipeline.orchestrator import run_case
 
+    set_job_id(job.get("id"))
     kit = await store.kits.get(job["kit_id"])
     if kit is None:
         job["status"] = "failed"
         job["error"] = {"code": Codes.NOT_FOUND, "message": "kit gone"}
         job["retryable"] = False
         await store.jobs.save(job)
+        record_metric("jobs", 1, outcome="failed", kind="generation")
         return
     case = kit.get("input") or {}
 
@@ -75,30 +78,34 @@ async def execute_generation(job: dict, store) -> None:
         _schedule_save(store, job)
 
     deps = server_deps()
-    try:
-        kit_doc, _log = await run_case(case, deps, on_event=on_event)
-        kit["kit"] = kit_doc
-        kit["status"] = "ready"
-        kit.pop("error", None)
-        job["status"] = "done"
-        for s in job["steps"]:
-            if s["status"] in ("pending", "running"):
-                s["status"] = "skipped"
-                s["message"] = s["message"] or "skipped"
-    except KitError as ke:
-        kit["status"] = "failed"
-        kit["error"] = {"code": ke.code, "message": ke.message}
-        job["status"] = "failed"
-        job["error"] = {"code": ke.code, "message": ke.message}
-        job["retryable"] = True
-    except Exception as exc:
-        kit["status"] = "failed"
-        kit["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
-        job["status"] = "failed"
-        job["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
-        job["retryable"] = True
-    await store.jobs.save(job)
-    await store.kits.save(kit)
+    with span("job.generation", {"job_id": job.get("id"), "kit_id": job.get("kit_id")}):
+        try:
+            kit_doc, _log = await run_case(case, deps, on_event=on_event)
+            kit["kit"] = kit_doc
+            kit["status"] = "ready"
+            kit.pop("error", None)
+            job["status"] = "done"
+            for s in job["steps"]:
+                if s["status"] in ("pending", "running"):
+                    s["status"] = "skipped"
+                    s["message"] = s["message"] or "skipped"
+            record_metric("jobs", 1, outcome="done", kind="generation")
+        except KitError as ke:
+            kit["status"] = "failed"
+            kit["error"] = {"code": ke.code, "message": ke.message}
+            job["status"] = "failed"
+            job["error"] = {"code": ke.code, "message": ke.message}
+            job["retryable"] = True
+            record_metric("jobs", 1, outcome="failed", kind="generation")
+        except Exception as exc:
+            kit["status"] = "failed"
+            kit["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
+            job["status"] = "failed"
+            job["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
+            job["retryable"] = True
+            record_metric("jobs", 1, outcome="failed", kind="generation")
+        await store.jobs.save(job)
+        await store.kits.save(kit)
 
 
 def _schedule_save(store, job) -> None:

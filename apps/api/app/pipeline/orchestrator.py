@@ -90,15 +90,20 @@ async def run_case(
     On expiry a valid partial Kit is returned as ok (with warnings) where the
     extraction already produced requirements; otherwise TIMEOUT.
     """
+    from app.observability import span
+
     overall_timeout = float(deps.get("overall_timeout_s", 180))
     holder: dict[str, Any] = {}
-    try:
-        return await asyncio.wait_for(_run_case_inner(case, deps, on_event, holder), timeout=overall_timeout)
-    except asyncio.TimeoutError:
-        reqs = holder.get("requirements") or []
-        if not reqs:
-            raise KitError(Codes.TIMEOUT, "generation deadline exceeded before any requirements")
-        return _assemble_partial(case, deps, holder, "generation deadline exceeded; partial kit")
+    with span("pipeline.run", {"jd_chars": len(case.get("jd") or ""), "days": case.get("days")}):
+        try:
+            return await asyncio.wait_for(
+                _run_case_inner(case, deps, on_event, holder), timeout=overall_timeout
+            )
+        except asyncio.TimeoutError:
+            reqs = holder.get("requirements") or []
+            if not reqs:
+                raise KitError(Codes.TIMEOUT, "generation deadline exceeded before any requirements")
+            return _assemble_partial(case, deps, holder, "generation deadline exceeded; partial kit")
 
 
 async def _run_case_inner(

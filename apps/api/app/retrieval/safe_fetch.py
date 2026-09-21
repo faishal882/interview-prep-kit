@@ -123,16 +123,39 @@ async def fetch(
     cache: PageCache | None = None,
 ) -> dict | None:
     """Return {'url','final_url','text','links'} or None (skip recorded)."""
+    from app.observability import record_metric, span
     from .crawler import normalize_url
 
     store = cache if cache is not None else _cache
     start = normalize_url(url)
+    with span("fetch", {"url_host": _host(start)}):
+        return await _fetch_inner(
+            start, allow_private=allow_private, production=production,
+            client=client, record=record, timeout_s=timeout_s, cache=store,
+        )
+
+
+async def _fetch_inner(
+    start: str,
+    *,
+    allow_private: bool = False,
+    production: bool = False,
+    client: httpx.AsyncClient | None = None,
+    record: list[dict] | None = None,
+    timeout_s: float = 15.0,
+    cache: PageCache | None = None,
+) -> dict | None:
+    from app.observability import record_metric
+
+    store = cache
     hit = await store.get(start)
     if hit is not None:
+        record_metric("crawls", 1, outcome="cache_hit")
         return hit
     ok, reason = validate_url(start, allow_private=allow_private, production=production)
     if not ok:
         _skip(record, start, reason)
+        record_metric("crawls", 1, outcome="guard_refused")
         return None
 
     own = client is None
@@ -155,6 +178,7 @@ async def fetch(
             r_ok, r_reason, r_delay = True, "", 0.0
         if not r_ok:
             _skip(record, start, r_reason)
+            record_metric("crawls", 1, outcome="robots_disallow")
             return None
 
         host = _host(start)

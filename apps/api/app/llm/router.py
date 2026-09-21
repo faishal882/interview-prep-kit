@@ -55,6 +55,8 @@ async def generate(
     attempts: int = 4,
 ) -> tuple[dict[str, Any], str]:
     """Run one provider call with gateway policy; return (payload, provider name)."""
+    from app.observability import record_metric, span, timed_ms
+
     t0 = time.monotonic()
     lim = limiter if limiter is not None else shared_limiter()
     await lim.acquire(estimate_tokens(prompt))
@@ -67,24 +69,27 @@ async def generate(
     async def _protected(text: str) -> dict[str, Any]:
         return await with_retry(lambda: _call(text), attempts=attempts)
 
-    try:
+    with span("llm.generate", {"prompt": prompt, "model": getattr(provider, "name", "?")}):
         try:
-            raw = await _protected(prompt)
-        except TruncatedError:
-            raw = await _protected(truncate(prompt, max(500, len(prompt) // 3)))
-        try:
-            validate_against_schema(raw, schema)
-            return raw, provider.name
-        except ValueError as ve:
-            fix = (repair_prompt or "Fix the JSON so it matches the schema.") + f"\nSchema errors: {ve}"
-            raw2 = await _protected(fix + "\n" + truncate(prompt, 4000))
-            validate_against_schema(raw2, schema)
-            return raw2, provider.name
-    finally:
-        if usage is not None:
-            usage.append({
-                "model": getattr(provider, "name", "?"),
-                "prompt_chars": len(prompt),
-                "latency_ms": round((time.monotonic() - t0) * 1000, 1),
-                "calls": calls[0],
-            })
+            try:
+                raw = await _protected(prompt)
+            except TruncatedError:
+                raw = await _protected(truncate(prompt, max(500, len(prompt) // 3)))
+            try:
+                validate_against_schema(raw, schema)
+                record_metric("tokens", estimate_tokens(prompt), outcome="ok")
+                return raw, provider.name
+            except ValueError as ve:
+                fix = (repair_prompt or "Fix the JSON so it matches the schema.") + f"\nSchema errors: {ve}"
+                raw2 = await _protected(fix + "\n" + truncate(prompt, 4000))
+                validate_against_schema(raw2, schema)
+                record_metric("tokens", estimate_tokens(prompt), outcome="repaired")
+                return raw2, provider.name
+        finally:
+            if usage is not None:
+                usage.append({
+                    "model": getattr(provider, "name", "?"),
+                    "prompt_chars": len(prompt),
+                    "latency_ms": timed_ms(t0),
+                    "calls": calls[0],
+                })
