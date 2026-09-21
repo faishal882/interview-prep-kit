@@ -52,10 +52,23 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 ## Retrieval approach and sources
 
 - **Company site:** priority-queue crawl from the company URL (budget 12 pages, depth ≤ 2,
-  ≤ 3 concurrent, ≤ 1 req/s per host, `Crawl-delay` honoured). Same registrable domain plus
-  an ATS allowlist (greenhouse, lever, ashby, workable) one hop; relative links followed;
-  static HTML only. No fixed path list — a heuristic link ranker finds hiring pages
-  wherever they are buried.
+  ≤ 1 req/s per host enforced under concurrency, `Crawl-delay` honoured up to a cap).
+  Redirects are followed manually (max 5 hops) with every hop validated before it is
+  requested; a redirect to a non-routable address is refused without contacting it.
+  Scope is the public-suffix-aware registrable domain plus an exact-domain ATS
+  allowlist (greenhouse, lever, ashby, workable) one hop — `greenhouse.io.evil.example`
+  never matches, and a `.co.uk` company never leads to other `.co.uk` sites. URLs are
+  normalised (trivial variants fetched once), retrieved pages count against the budget,
+  and links per page are bounded. Static HTML only.
+- **URL guard:** strict by default — only globally routable addresses (no private,
+  loopback, link-local, multicast, shared-address, reserved or IPv4-mapped-private
+  forms, every resolved address checked); production additionally allows only ports
+  80/443. The CLI opts out explicitly for fixture hosts.
+- **robots.txt:** fetched per host and cached with expiry; missing allows, server-error
+  or unreachable disallows. Bodies stream with a 2 MB mid-download cutoff; content
+  types allowlisted; the page cache is bounded and expiring. Every outcome is a page
+  or a recorded skip reason in the `research_log` — one dead source never fails the run. Unreachable company → `ok` Kit with
+  a deterministic honest brief ("We could not retrieve …", no LLM call).
 - **Public discussion:** Hacker News via the Algolia API (keyless) + optional `SEARCH_API_KEY`;
   skipped with reason when the company URL is private.
 - **Sources:** the company's own site; Hacker News; optional search API. Glassdoor/LinkedIn
