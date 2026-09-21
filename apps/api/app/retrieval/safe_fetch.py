@@ -210,9 +210,12 @@ async def _get_with_redirects(
                         _skip(record, current, "oversize")
                         return None
                     chunks.append(chunk)
-                text = b"".join(chunks).decode(resp.charset or "utf-8", errors="replace")
-                links = _links(text, current)
-                return {"url": url, "final_url": current, "text": clean_text(text), "links": links}
+                raw_html = b"".join(chunks).decode(resp.charset_encoding or "utf-8", errors="replace")
+                links = _links(raw_html, current)
+                return {
+                    "url": url, "final_url": current, "text": clean_text(raw_html),
+                    "links": links, "title": _title(raw_html), "site_name": _site_name(raw_html),
+                }
         except Exception as exc:
             _skip(record, current, f"fetch-failed: {type(exc).__name__}")
             return None
@@ -226,6 +229,24 @@ def clean_text(html: str) -> str:
     txt = re.sub(r"<[^>]+>", " ", no_script)
     txt = re.sub(r"\s+", " ", txt).strip()
     return txt[:20000]
+
+
+def _title(html: str) -> str:
+    import re
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+    if not m:
+        return ""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", m.group(1))).strip()[:200]
+
+
+def _site_name(html: str) -> str:
+    import re
+    m = re.search(
+        r'<meta[^>]+property=["\']og:site_name["\'][^>]+content=["\']([^"\']+)["\']', html, re.I)
+    if not m:
+        m = re.search(
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:site_name["\']', html, re.I)
+    return (m.group(1).strip()[:200] if m else "")
 
 
 def _links(html: str, base: str) -> list[dict]:
