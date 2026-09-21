@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (gitignored) and fill in.
+aws_region     = "us-east-1"
+name_prefix    = "trao"
+my_ip_cidr     = "1.2.3.4/32"
+public_key_path = "~/.ssh/id_ed25519.pub"
+instance_type  = "t3.small"
+repo_url       = "https://github.com/example/trao.git"
+budget_email   = "you@example.com"
+# budget_usd   = "30"
+# data_volume_gb = 20
