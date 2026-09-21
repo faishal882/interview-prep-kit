@@ -164,7 +164,8 @@ async def _run_case_inner(
         try:
             pages, _used = await crawl(
                 company_url, budget=deps.get("max_pages", 12), depth=deps.get("depth", 2),
-                allow_private=allow_private, client=http_client, research_log=research_log,
+                allow_private=allow_private, client=http_client,
+                cache=deps.get("page_cache"), research_log=research_log,
             )
             # injection filter: drop pages that address an AI / issue instructions
             kept = []

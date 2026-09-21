@@ -107,11 +107,13 @@ async def crawl(
     allow_private: bool = False,
     production: bool = False,
     client=None,
+    cache=None,
     research_log: dict | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Return (pages, pages_used_urls). Skips recorded into research_log['fetches'].
 
-    The budget counts pages retrieved, not URLs queued or skipped.
+    The budget counts pages retrieved, not URLs queued or skipped. A shared
+    cache may be passed so retried generations do not re-fetch pages.
     """
     skips: list[dict] = []
     pages: list[dict] = []
@@ -135,7 +137,7 @@ async def crawl(
                 skips.append({"url": url, "reason": "off-domain"})
                 continue
         page = await fetch(url, allow_private=allow_private, production=production,
-                           client=client, record=skips)
+                           client=client, record=skips, cache=cache)
         if page is None:
             continue
         pages.append({**page, "depth": d})

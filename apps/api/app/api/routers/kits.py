@@ -11,6 +11,7 @@ from app.api.deps import current_user, get_kit_or_404
 from app.config import get_settings
 from app.domain.errors import Codes, KitError
 from app.jobs.runner import new_job
+from app.jobs.worker import drain_pending_jobs, server_deps
 from app.persistence.errors import ConflictError
 from app.persistence.repos_base import dedupe_key
 from app.persistence.store import get_store
@@ -26,97 +27,9 @@ class CreateKit(BaseModel):
     force_new: bool = False
 
 
-async def _run_pipeline_async(kit_id: str, job_id: str, case: dict, deps: dict) -> None:
-    """Background generation on the server loop (shares it with the store)."""
-    from app.pipeline.orchestrator import run_case
-
-    store = get_store()
-    job = await store.jobs.get(job_id)
-    kit = await store.kits.get(kit_id)
-    if not job or not kit:
-        return
-
-    def on_event(ev: dict) -> None:
-        import datetime as _dt
-        now = _dt.datetime.now(_dt.timezone.utc).isoformat()
-        job["heartbeat"] = time.time()
-        for s in job["steps"]:
-            if s["name"] == ev.get("step"):
-                if s["status"] == "pending" and ev.get("status") in ("running", "done", "skipped", "failed"):
-                    s["started_at"] = s["started_at"] or now
-                s["status"] = ev.get("status", s["status"])
-                s["message"] = ev.get("message", "")
-                if s["status"] in ("done", "skipped", "failed"):
-                    s["finished_at"] = now
-                _save_soon(store, job)
-
-    job["status"] = "running"
-    job["heartbeat"] = time.time()
-    await store.jobs.save(job)
-    try:
-        kit_doc, _log = await run_case(case, deps, on_event=on_event)
-        kit["kit"] = kit_doc
-        kit["status"] = "ready"
-        job["status"] = "done"
-        for s in job["steps"]:
-            if s["status"] in ("pending", "running"):
-                s["status"] = "skipped"
-                s["message"] = s["message"] or "skipped"
-    except KitError as ke:
-        kit["status"] = "failed"
-        kit["error"] = {"code": ke.code, "message": ke.message}
-        job["status"] = "failed"
-        job["error"] = {"code": ke.code, "message": ke.message}
-        job["retryable"] = True
-    except Exception as exc:
-        kit["status"] = "failed"
-        kit["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
-        job["status"] = "failed"
-        job["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
-        job["retryable"] = True
-    await store.jobs.save(job)
-    await store.kits.save(kit)
-
-
-def _save_soon(store, job) -> None:
-    import asyncio as _aio
-
-    async def _save() -> None:
-        try:
-            await store.jobs.save(job)
-        except Exception:
-            pass
-
-    try:
-        loop = _aio.get_running_loop()
-    except RuntimeError:
-        return
-    try:
-        loop.create_task(_save())
-    except RuntimeError:
-        pass  # loop closing; the final save still persists everything
-
-
-def _deps_for_server() -> dict:
-    import os
-    s = get_settings()
-    explicit_fake = os.environ.get("FAKE_LLM") or s.FAKE_LLM
-    if explicit_fake:
-        from app.llm.fake import FakeLLM
-        llm = FakeLLM()
-        return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
-                "skip_retrieval": True, "max_pages": 4, "depth": 1,
-                "step_timeout_s": s.STEP_TIMEOUT_S, "overall_timeout_s": s.OVERALL_TIMEOUT_S}
-    key = os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY
-    if not key:
-        # never silently serve fake kits: fail fast without a model key
-        raise KitError(Codes.MISSING_CREDENTIALS, "Missing GEMINI_API_KEY")
-    from app.llm.gemini import GeminiProvider
-    llm = GeminiProvider(key, s.GEMINI_MODEL)
-    return {"llm": llm, "allow_private": s.ALLOW_PRIVATE_URLS,
-            "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH,
-            "step_timeout_s": s.STEP_TIMEOUT_S, "overall_timeout_s": s.OVERALL_TIMEOUT_S,
-            "max_jd_chars": s.MAX_JD_CHARS}
+# Generation execution lives in app.jobs.worker (execute_generation); this
+# router only enqueues pending jobs and kicks a dispatch burst. The lifespan
+# worker loop performs recovery and steady-state dispatch.
 
 
 @router.post("/api/kits")
@@ -150,23 +63,19 @@ async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = 
         doc["status"] = "generating"
         doc["input"] = {"jd": body.jd, "company_url": body.company_url, "days": body.days}
         await store.kits.save(doc)
-    # one active job per kit
+    # one active job per kit; the worker loop enforces concurrency + per-user limits
     existing = await store.jobs.active_for_kit(kit_id)
     if existing:
         return {"kit_id": kit_id, "job_id": existing["id"], "duplicate": False}
-    # bounded concurrency: count running
-    running = await store.jobs.running_count()
-    job = new_job(kit_id)
+    settings = get_settings()
+    job = new_job(kit_id, user_id=user["id"], kind="generation",
+                  deadline=time.time() + settings.OVERALL_TIMEOUT_S + 60)
     try:
         await store.jobs.create_active(job)
     except ConflictError:
         existing = await store.jobs.active_for_kit(kit_id)
         return {"kit_id": kit_id, "job_id": existing["id"] if existing else None, "duplicate": False}
-    if running >= get_settings().MAX_CONCURRENT_RUNS:
-        job["status"] = "pending"
-        await store.jobs.save(job)
-    case = {"jd": body.jd, "company_url": body.company_url, "days": body.days}
-    background.add_task(_run_pipeline_async, kit_id, job["id"], case, _deps_for_server())
+    background.add_task(drain_pending_jobs)
     return {"kit_id": kit_id, "job_id": job["id"], "duplicate": False}
 
 
@@ -273,10 +182,16 @@ async def batch_upload(body: list[BatchEntry], background: BackgroundTasks, user
         await store.kits.create({"id": kit_id, "user_id": user["id"], "dedupe_key": key, "status": "generating",
                                  "input": {"jd": e.jd, "company_url": e.company_url, "days": e.days},
                                  "kit": None, "created_at": time.time()})
-        job = new_job(kit_id)
-        await store.jobs.create(job)
-        background.add_task(_run_pipeline_async, kit_id, job["id"],
-                            {"jd": e.jd, "company_url": e.company_url, "days": e.days}, _deps_for_server())
+        settings = get_settings()
+        job = new_job(kit_id, user_id=user["id"], kind="generation",
+                      deadline=time.time() + settings.OVERALL_TIMEOUT_S + 60)
+        try:
+            await store.jobs.create_active(job)
+        except ConflictError:
+            existing = await store.jobs.active_for_kit(kit_id)
+            accepted.append({"id": eid, "kit_id": kit_id, "job_id": existing["id"] if existing else None})
+            continue
+        background.add_task(drain_pending_jobs)
         accepted.append({"id": eid, "kit_id": kit_id, "job_id": job["id"]})
     return {"accepted": accepted, "rejected": rejected}
 

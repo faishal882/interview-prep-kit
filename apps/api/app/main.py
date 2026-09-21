@@ -14,7 +14,10 @@ from app.domain.errors import KitError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
+
     from app.config import get_settings, validate_production
+    from app.jobs.worker import Worker
     from app.llm.router import configure_shared_limiter
     from app.persistence.store import get_store
 
@@ -29,9 +32,18 @@ async def lifespan(app: FastAPI):
     if store.durable:
         from app.retrieval import safe_fetch
         safe_fetch.set_default_cache(store.page_cache)
+    worker = Worker(store, concurrency=settings.MAX_CONCURRENT_RUNS,
+                    per_user=settings.MAX_CONCURRENT_PER_USER)
+    worker_task = asyncio.create_task(worker.run_forever())
     try:
         yield
     finally:
+        worker.stop()
+        worker_task.cancel()
+        try:
+            await worker_task
+        except (asyncio.CancelledError, Exception):
+            pass
         await store.shutdown()
 
 
