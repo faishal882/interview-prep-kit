@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     DEBUG_CAPTURE_CONTENT: bool = False
     FAKE_LLM: str = ""  # explicit setting only; never an implicit fallback
 
-    # Auth and quotas (registration closes by default in phase 11; kept open here)
-    REGISTRATION_OPEN: bool = True
+    # Auth and quotas (registration closed by default; the operator command
+    # provisions users, REGISTRATION_OPEN=true reopens explicitly)
+    REGISTRATION_OPEN: bool = False
     SESSION_TTL_S: int = 7 * 24 * 3600
     MAX_KITS_PER_DAY: int = 10
     MAX_STORED_KITS: int = 50
