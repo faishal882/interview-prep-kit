@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.deps import check_origin
-from app.api.errors import envelope, kit_error_handler, unhandled_handler
+from app.api.errors import envelope, kit_error_handler, unhandled_handler, validation_handler
 from app.api.routers import auth, items, kits, practice, sections
 from app.domain.errors import KitError
 
@@ -48,8 +48,12 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    from fastapi.exceptions import RequestValidationError
+    from pydantic import ValidationError
     app = FastAPI(title="trao interview prep kit", lifespan=lifespan)
     app.add_exception_handler(KitError, kit_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_handler)
+    app.add_exception_handler(ValidationError, validation_handler)
     app.add_exception_handler(Exception, unhandled_handler)
 
     @app.middleware("http")
