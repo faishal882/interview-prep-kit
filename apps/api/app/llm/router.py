@@ -1,10 +1,34 @@
-"""Single-LLM generation: retry/backoff plus exactly one repair attempt on invalid output."""
+"""Model gateway policy: shared limiting, truncation retry, deep validation.
+
+One repair attempt on schema-invalid output, itself protected by retry for
+genuine provider conditions. Truncated output is retried once with a smaller
+prompt. Programming errors fail immediately. Usage and latency are recorded
+per call.
+"""
 from __future__ import annotations
 
+import time
 from typing import Any
 
-from .base import ProviderError
+from .base import ProviderError, TruncatedError
+from .limiter import RateLimiter, estimate_tokens
 from .retry import with_retry
+from .validate import validate_against_schema
+
+_shared_limiter: RateLimiter | None = None
+
+
+def shared_limiter(requests_per_minute: float = 60.0, tokens_per_minute: float = 200000.0) -> RateLimiter:
+    global _shared_limiter
+    if _shared_limiter is None:
+        _shared_limiter = RateLimiter(requests_per_minute, tokens_per_minute)
+    return _shared_limiter
+
+
+def reset_shared_limiter() -> None:
+    """Forget the process-wide limiter (tests only)."""
+    global _shared_limiter
+    _shared_limiter = None
 
 
 def truncate(text: str, max_chars: int) -> str:
@@ -19,23 +43,41 @@ async def generate(
     schema: dict[str, Any],
     *,
     repair_prompt: str | None = None,
+    limiter: RateLimiter | None = None,
+    usage: list[dict] | None = None,
+    attempts: int = 4,
 ) -> tuple[dict[str, Any], str]:
-    """Run one provider; on invalid output make exactly one repair attempt."""
-    raw = await with_retry(lambda: provider.generate_structured(prompt, schema))
+    """Run one provider call with gateway policy; return (payload, provider name)."""
+    t0 = time.monotonic()
+    lim = limiter if limiter is not None else shared_limiter()
+    await lim.acquire(estimate_tokens(prompt))
+    calls = [0]
+
+    async def _call(text: str) -> dict[str, Any]:
+        calls[0] += 1
+        return await provider.generate_structured(text, schema)
+
+    async def _protected(text: str) -> dict[str, Any]:
+        return await with_retry(lambda: _call(text), attempts=attempts)
+
     try:
-        _check_shape(raw, schema)
-        return raw, provider.name
-    except ValueError as ve:
-        # one repair attempt with the validation error included
-        fix = (repair_prompt or "Fix the JSON so it matches the schema.") + f"\nError: {ve}"
-        raw2 = await provider.generate_structured(fix + "\n" + prompt, schema)
-        _check_shape(raw2, schema)
-        return raw2, provider.name
-
-
-def _check_shape(payload: Any, schema: dict[str, Any]) -> None:
-    if not isinstance(payload, dict):
-        raise ValueError("top-level must be an object")
-    for key in schema.get("required", []):
-        if key not in payload:
-            raise ValueError(f"missing key: {key}")
+        try:
+            raw = await _protected(prompt)
+        except TruncatedError:
+            raw = await _protected(truncate(prompt, max(500, len(prompt) // 3)))
+        try:
+            validate_against_schema(raw, schema)
+            return raw, provider.name
+        except ValueError as ve:
+            fix = (repair_prompt or "Fix the JSON so it matches the schema.") + f"\nSchema errors: {ve}"
+            raw2 = await _protected(fix + "\n" + truncate(prompt, 4000))
+            validate_against_schema(raw2, schema)
+            return raw2, provider.name
+    finally:
+        if usage is not None:
+            usage.append({
+                "model": getattr(provider, "name", "?"),
+                "prompt_chars": len(prompt),
+                "latency_ms": round((time.monotonic() - t0) * 1000, 1),
+                "calls": calls[0],
+            })
