@@ -28,14 +28,15 @@ CACHE_TTL_S = 3600
 
 
 class PageCache:
-    """Bounded, expiring page cache (LRU-evicting)."""
+    """Bounded, expiring page cache (LRU-evicting). Async interface so the
+    server can substitute the durable repository implementation."""
 
     def __init__(self, maxsize: int = CACHE_MAX_PAGES, ttl_s: float = CACHE_TTL_S):
         self._data: OrderedDict[str, tuple[dict, float]] = OrderedDict()
         self._maxsize = maxsize
         self._ttl = ttl_s
 
-    def get(self, key: str) -> dict | None:
+    async def get(self, key: str) -> dict | None:
         hit = self._data.get(key)
         if hit is None:
             return None
@@ -46,7 +47,7 @@ class PageCache:
         self._data.move_to_end(key)
         return page
 
-    def put(self, key: str, page: dict) -> None:
+    async def put(self, key: str, page: dict) -> None:
         self._data[key] = (page, time.time())
         self._data.move_to_end(key)
         while len(self._data) > self._maxsize:
@@ -56,7 +57,13 @@ class PageCache:
         return len(self._data)
 
 
-_cache = PageCache()
+_cache: PageCache = PageCache()
+
+
+def set_default_cache(cache: PageCache) -> None:
+    """Substitute the page cache (server startup wires the durable one)."""
+    global _cache
+    _cache = cache
 _host_locks: dict[str, asyncio.Lock] = {}
 _host_last: dict[str, float] = {}
 _locks_guard = asyncio.Lock()
@@ -120,7 +127,7 @@ async def fetch(
 
     store = cache if cache is not None else _cache
     start = normalize_url(url)
-    hit = store.get(start)
+    hit = await store.get(start)
     if hit is not None:
         return hit
     ok, reason = validate_url(start, allow_private=allow_private, production=production)
@@ -165,7 +172,7 @@ async def fetch(
             )
             _host_last[host] = time.time()
             if page is not None:
-                store.put(start, page)
+                await store.put(start, page)
             return page
     finally:
         if own:

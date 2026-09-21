@@ -31,6 +31,13 @@ def reset_shared_limiter() -> None:
     _shared_limiter = None
 
 
+def configure_shared_limiter(requests_per_minute: float, tokens_per_minute: float) -> RateLimiter:
+    """Set the process-wide limiter from settings (server startup)."""
+    global _shared_limiter
+    _shared_limiter = RateLimiter(requests_per_minute, tokens_per_minute)
+    return _shared_limiter
+
+
 def truncate(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text

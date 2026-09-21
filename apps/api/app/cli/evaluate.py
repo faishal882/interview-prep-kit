@@ -23,13 +23,15 @@ PER_CASE_TIMEOUT = 240
 
 def build_deps() -> dict:
     s = get_settings()
+    base = {"allow_private": True, "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH,
+            "step_timeout_s": s.STEP_TIMEOUT_S, "overall_timeout_s": PER_CASE_TIMEOUT,
+            "max_jd_chars": s.MAX_JD_CHARS}
     if os.environ.get("FAKE_LLM") or s.FAKE_LLM:
         llm = FakeLLM()
-        return {"llm": llm, "allow_private": True,
-                "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
+        return {"llm": llm, **base}
     require_credentials(s)
     llm = GeminiProvider(os.environ.get("GEMINI_API_KEY") or s.GEMINI_API_KEY, s.GEMINI_MODEL)
-    return {"llm": llm, "allow_private": True, "max_pages": s.MAX_CRAWL_PAGES, "depth": s.CRAWL_DEPTH}
+    return {"llm": llm, **base}
 
 
 def normalize_cases(cases: object) -> list[dict]:

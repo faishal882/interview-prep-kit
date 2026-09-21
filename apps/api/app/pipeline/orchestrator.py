@@ -129,10 +129,11 @@ async def _run_case_inner(
     # --- ingest (thin check, over-long handling) ---
     emit("ingest", "running")
     thin_hint = len(jd.strip()) < 200
-    if len(jd) > MAX_JD_CHARS:
-        warnings.append(f"description truncated to {MAX_JD_CHARS} characters; the tail was not processed")
+    max_jd_chars = int(deps.get("max_jd_chars", MAX_JD_CHARS) or MAX_JD_CHARS)
+    if len(jd) > max_jd_chars:
+        warnings.append(f"description truncated to {max_jd_chars} characters; the tail was not processed")
         research_log["warnings"].append("jd_truncated")
-        jd = jd[:MAX_JD_CHARS]
+        jd = jd[:max_jd_chars]
     emit("ingest", "done")
 
     async def _gen(prompt: str, schema: dict) -> dict:
