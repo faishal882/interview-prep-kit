@@ -9,8 +9,10 @@ from fastapi import APIRouter, Cookie, Depends, Response
 from pydantic import BaseModel
 
 from app.api.deps import current_user
+from app.config import get_settings
 from app.domain.errors import Codes, KitError
-from app.persistence.memory import DB, SESSION_TTL
+from app.persistence.errors import ConflictError
+from app.persistence.store import get_store
 from app.security.passwords import hash_password, new_token, verify_password
 
 router = APIRouter()
@@ -24,7 +26,8 @@ class Creds(BaseModel):
 
 
 def _cookie(response: Response, raw: str) -> None:
-    response.set_cookie("session", raw, httponly=True, secure=False, samesite="lax", max_age=SESSION_TTL, path="/")
+    ttl = get_settings().SESSION_TTL_S
+    response.set_cookie("session", raw, httponly=True, secure=False, samesite="lax", max_age=ttl, path="/")
 
 
 @router.post("/api/auth/register")
@@ -32,11 +35,15 @@ async def register(body: Creds, response: Response) -> dict:
     email = body.email.strip().lower()
     if "@" not in email or len(body.password) < 8:
         raise KitError(Codes.INVALID_INPUT, "email and 8+ char password required")
-    if email in DB.users_by_email:
+    store = get_store()
+    if await store.users.by_email(email):
         raise KitError(Codes.CONFLICT, "email taken")
-    u = DB.create_user(email, hash_password(body.password))
+    try:
+        u = await store.users.create(email, hash_password(body.password))
+    except ConflictError:
+        raise KitError(Codes.CONFLICT, "email taken")
     raw, digest = new_token()
-    DB.sessions[digest] = {"user_id": u["id"], "expires_at": time.time() + SESSION_TTL}
+    await store.sessions.create(digest, u["id"], time.time() + get_settings().SESSION_TTL_S)
     _cookie(response, raw)
     return {"id": u["id"], "email": u["email"]}
 
@@ -45,18 +52,18 @@ async def register(body: Creds, response: Response) -> dict:
 async def login(body: Creds, response: Response) -> dict:
     key = body.email.strip().lower()
     now = time.time()
-    DB.failed_logins.setdefault(key, [])
-    DB.failed_logins[key] = [t for t in DB.failed_logins[key] if now - t < LOGIN_WINDOW]
-    if len(DB.failed_logins[key]) >= LOGIN_MAX:
+    store = get_store()
+    attempts = [t for t in await store.throttles.get_times(f"login:{key}") if now - t < LOGIN_WINDOW]
+    if len(attempts) >= LOGIN_MAX:
         raise KitError(Codes.RATE_LIMITED, "too many attempts; slow down")
-    uid = DB.users_by_email.get(key)
-    u = DB.users.get(uid or "")
+    u = await store.users.by_email(key)
     if not u or not verify_password(u["pw_hash"], body.password):
-        DB.failed_logins[key].append(now)
+        attempts.append(now)
+        await store.throttles.set_times(f"login:{key}", attempts)
         raise KitError(Codes.UNAUTHORIZED, "bad credentials")
-    DB.failed_logins[key] = []
+    await store.throttles.set_times(f"login:{key}", [])
     raw, digest = new_token()
-    DB.sessions[digest] = {"user_id": u["id"], "expires_at": now + SESSION_TTL}
+    await store.sessions.create(digest, u["id"], now + get_settings().SESSION_TTL_S)
     _cookie(response, raw)
     return {"id": u["id"], "email": u["email"]}
 
@@ -64,7 +71,7 @@ async def login(body: Creds, response: Response) -> dict:
 @router.post("/api/auth/logout")
 async def logout(response: Response, session: Annotated[str | None, Cookie()] = None) -> dict:
     if session:
-        DB.sessions.pop(hashlib.sha256(session.encode()).hexdigest(), None)
+        await get_store().sessions.delete(hashlib.sha256(session.encode()).hexdigest())
     response.delete_cookie("session", path="/")
     return {"ok": True}
 

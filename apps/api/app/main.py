@@ -1,6 +1,8 @@
 """FastAPI app factory."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,8 +12,31 @@ from app.api.routers import auth, items, kits, practice, sections
 from app.domain.errors import KitError
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.config import get_settings, validate_production
+    from app.llm.router import configure_shared_limiter
+    from app.persistence.store import get_store
+
+    settings = get_settings()
+    if settings.ENV == "production":
+        problems = validate_production(settings)
+        if problems:
+            raise RuntimeError("invalid production configuration:\n- " + "\n- ".join(problems))
+    configure_shared_limiter(settings.LLM_REQUESTS_PER_MINUTE, settings.LLM_TOKENS_PER_MINUTE)
+    store = get_store()
+    await store.startup()
+    if store.durable:
+        from app.retrieval import safe_fetch
+        safe_fetch.set_default_cache(store.page_cache)
+    try:
+        yield
+    finally:
+        await store.shutdown()
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="trao interview prep kit")
+    app = FastAPI(title="trao interview prep kit", lifespan=lifespan)
     app.add_exception_handler(KitError, kit_error_handler)
     app.add_exception_handler(Exception, unhandled_handler)
 
