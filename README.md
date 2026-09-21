@@ -92,7 +92,6 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 take-home adds scoping/trade-off questions; a system-design round switches that Category on.
 
 ## Generated / edited / pinned state
-
 Every item carries `{origin, edited, pinned, rev, order}` (see ADR-0004).
 **Protected** = user-written, edited or pinned. Regenerating a Category replaces only
 unprotected items in one atomic single-document update that also keeps any item whose `rev`
@@ -133,6 +132,12 @@ coverage check not quality judgment.
 
 Invalid/404/timeout company → `ok` + honest brief + research-log entry. No hiring page →
 recorded, generic mix. Two-line JD → `thin_jd` flag, small Kit, warning, nothing invented.
+Descriptions over 30,000 characters are truncated with an explicit warning (never silently).
+Days outside 1–60 fail the Case with `INVALID_INPUT`. Duplicate batch ids are made unique
+with a recorded note; malformed cases files fail before any work, and output is written
+atomically. One bad model value (difficulty 99, missing outline) is clamped or dropped —
+never fails the Kit. Per-Step (60 s) and overall (180 s) generation deadlines return a
+valid partial Kit as `ok` with warnings where requirements exist, else `TIMEOUT`.
 No discussion → "nothing found" recorded, brief says so. Invalid model JSON → one repair,
 then step failure. Rate limits → backoff with jitter, then recorded step failure. Duplicate submit → existing Kit
 (`force_new` overrides; failed Kits retried in place). 1-day / 60-day → always exactly N days.
