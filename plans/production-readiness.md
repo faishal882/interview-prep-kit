@@ -298,13 +298,13 @@ Structured JSON logging always on, with request, job and trace ids; every unexpe
 
 ### Acceptance criteria
 
-- [ ] The reference id in an error response appears in a log line for the same request
-- [ ] A forced 500 produces a logged stack trace and a generic response
-- [ ] Readiness fails when the database is down or the key is missing; liveness stays up
-- [ ] With telemetry off nothing is exported and behaviour is unchanged, including for the batch command
-- [ ] With the local profile on, a batch run shows a trace per Case with Steps, fetches and model calls, retries and rate-limit waits
-- [ ] Spans and logs contain sizes and hashes, never description or page text, unless explicitly enabled
-- [ ] An unreachable telemetry endpoint never slows or fails a run
+- [x] The reference id in an error response appears in a log line for the same request
+- [x] A forced 500 produces a logged stack trace and a generic response
+- [x] Readiness fails when the database is down or the key is missing; liveness stays up
+- [x] With telemetry off nothing is exported and behaviour is unchanged, including for the batch command
+- [x] With the local profile on, a batch run shows a trace per Case with Steps, fetches and model calls, retries and rate-limit waits
+- [x] Spans and logs contain sizes and hashes, never description or page text, unless explicitly enabled
+- [x] An unreachable telemetry endpoint never slows or fails a run
 
 ---
 

@@ -95,6 +95,8 @@ export interface HTTPValidationError {
 }
 export interface HealthOut {
   ok?: boolean;
+  problems?: (Array<string>) | null;
+  [key: string]: unknown;
 }
 export interface ItemMeta {
   origin?: string;

@@ -164,6 +164,20 @@ A recovery pass runs continuously: a stale heartbeat requeues the job once, then
 retryable. Per-Step (60 s) and overall (180 s) deadlines bound every run, plus a job-level
 backstop; a retried generation reuses already-cached pages instead of re-fetching.
 
+## Observability
+
+Structured JSON logs are always on (stdout) with `request_id`, `job_id` and `trace_id`.
+The error envelope's `trace_id` is the same request id that appears in the log line for
+that request; unexpected errors log a stack trace and return a generic message.
+Probes: `GET /api/health/live` (process up) and `GET /api/health/ready` (database ping
+when configured, plus model key or explicit `FAKE_LLM`); `GET /api/health` aliases
+liveness. OpenTelemetry is optional and off by default — set
+`OTEL_EXPORTER_OTLP_ENDPOINT` (local demo: `docker compose --profile obs up -d`) for a
+trace per generation with spans for the pipeline, fetches and model calls, plus metrics
+for jobs, tokens, rate-limits and crawls. Spans carry sizes and hashes, never JD or page
+text, unless `DEBUG_CAPTURE_CONTENT=true`. An unreachable collector never slows or fails
+a run (including `npm run evaluate`).
+
 ## Edge cases
 
 Invalid/404/timeout company → `ok` + honest brief + research-log entry. No hiring page →
