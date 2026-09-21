@@ -115,3 +115,37 @@ def test_batch_contract(tmp_path=None):
     assert by_id["b"]["status"] == "failed" and by_id["b"]["kit"] is None
     # per-case days honoured
     assert by_id["a"]["kit"]["schedule"]["days_available"] == 1
+
+
+def test_reorder_moves_and_rebalances_long_keys():
+    from app.domain.ordering import KEY_LENGTH_LIMIT
+    c = authed()
+    r = c.post("/api/kits", json={"jd": "Need Python. Required: Python.", "company_url": "", "days": 2})
+    kit_id = r.json()["kit_id"]
+    import time
+    for _ in range(50):
+        time.sleep(0.1)
+        k = c.get(f"/api/kits/{kit_id}").json()
+        if k.get("status") == "ready":
+            break
+    q1 = c.post(f"/api/kits/{kit_id}/questions",
+                json={"prompt": "First", "answer_outline": "O", "requirement_ids": [], "category": "technical", "difficulty": 1}).json()
+    q2 = c.post(f"/api/kits/{kit_id}/questions",
+                json={"prompt": "Second", "answer_outline": "O", "requirement_ids": [], "category": "technical", "difficulty": 1}).json()
+    # move second to front
+    moved = c.post(f"/api/kits/{kit_id}/questions/reorder", json={"id": q2["id"], "after_id": None}).json()
+    k = c.get(f"/api/kits/{kit_id}").json()
+    tech = sorted([q for q in k["kit"]["questions"] if q["category"] == "technical"],
+                  key=lambda q: q["_meta"]["order"])
+    assert tech[0]["id"] == q2["id"]
+    # force a long key directly, then reorder: the category is rebalanced to short keys
+    from app.domain.ordering import KEY_LENGTH_LIMIT
+    from app.persistence.memory import DB
+    doc = DB.kits[kit_id]
+    tech_qs = [q for q in doc["kit"]["questions"] if q["category"] == "technical"]
+    tech_qs[0]["_meta"]["order"] = "h" + "0" * (KEY_LENGTH_LIMIT + 5)
+    c.post(f"/api/kits/{kit_id}/questions/reorder", json={"id": tech_qs[1]["id"], "after_id": None})
+    k2 = c.get(f"/api/kits/{kit_id}").json()
+    orders = [q["_meta"]["order"] for q in k2["kit"]["questions"] if q["category"] == "technical"]
+    assert len(set(orders)) == len(orders)
+    assert all(len(o) <= KEY_LENGTH_LIMIT for o in orders)

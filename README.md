@@ -96,7 +96,10 @@ Every item carries `{origin, edited, pinned, rev, order}` (see ADR-0004).
 **Protected** = user-written, edited or pinned. Regenerating a Category replaces only
 unprotected items in one atomic single-document update that also keeps any item whose `rev`
 changed since the job started (in-flight edits survive). Moving a Question across Categories
-counts as an edit; reordering within one changes only the fractional-index `order` key.
+counts as an edit; reordering within one changes only the fractional-index `order` key
+(exact rational midpoints in `app/domain/ordering.py`, mirrored in `lib/ordering.ts` from
+shared vectors in `fixtures/ordering-vectors.json`; scopes rebalance to short keys past
+32 characters, old keys keep sorting without migration).
 Brief regeneration on an edited brief returns a **proposal**. Manual Schedule edits are kept
 until an explicit rebuild (warns before replacing); the Schedule is marked stale when
 Questions change; deleted Question ids are stripped immediately. Metadata is stripped on

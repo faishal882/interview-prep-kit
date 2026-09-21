@@ -11,7 +11,7 @@ from app.api.deps import current_user, get_kit_or_404
 from app.coverage.checker import compute_gaps
 from app.domain.errors import Codes, KitError
 from app.domain.item_meta import is_protected
-from app.domain.ordering import key_between
+from app.domain.ordering import FIRST_KEY, key_between, needs_rebalance, rebalance
 from app.persistence.memory import DB
 
 router = APIRouter()
@@ -147,7 +147,7 @@ async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_u
         key=lambda q: q.get("_meta", {}).get("order", ""),
     )
     if not siblings:
-        meta["order"] = "a0"
+        meta["order"] = FIRST_KEY
     elif body.after_id is None:
         meta["order"] = key_between(None, siblings[0].get("_meta", {}).get("order"))
     else:
@@ -155,5 +155,13 @@ async def reorder(kit_id: str, body: ReorderBody, user: dict = Depends(current_u
         prev_k = siblings[idx].get("_meta", {}).get("order") if idx >= 0 else None
         next_k = siblings[idx + 1].get("_meta", {}).get("order") if idx + 1 < len(siblings) else None
         meta["order"] = key_between(prev_k, next_k)
+    scope = sorted(
+        [q for q in kit["questions"] if q.get("category") == item.get("category")],
+        key=lambda q: q.get("_meta", {}).get("order", ""),
+    )
+    if any(needs_rebalance(q.get("_meta", {}).get("order", "")) for q in scope):
+        # reassign short keys across the category, preserving rev/edited flags
+        for q, fresh in zip(scope, rebalance(len(scope))):
+            q.setdefault("_meta", _meta_new("generated"))["order"] = fresh
     _recompute(k)
     return item
