@@ -74,7 +74,11 @@ def is_hiring_platform(host: str) -> bool:
 
 
 def normalize_url(url: str) -> str:
-    """Canonical form so trivially different URLs are fetched once."""
+    """Canonical form so trivially different URLs are fetched once.
+
+    Note: trailing slashes are NOT stripped here — /page/ and /page can be
+    different resources. Use dedupe_key() for seen-set comparisons.
+    """
     p = urlparse(url)
     scheme = p.scheme.lower()
     host = (p.hostname or "").rstrip(".").lower()
@@ -82,10 +86,17 @@ def normalize_url(url: str) -> str:
     default = 443 if scheme == "https" else 80
     netloc = host if port in (None, default) else f"{host}:{port}"
     path = p.path or "/"
-    if len(path) > 1 and path.endswith("/"):
-        path = path.rstrip("/")
     query = urlencode(sorted(parse_qsl(p.query, keep_blank_values=True)))
     return urlunparse((scheme, netloc, path, "", query, ""))
+
+
+def dedupe_key(url: str) -> str:
+    """Seen-set key: normalized, with a trailing slash ignored for non-root paths."""
+    n = normalize_url(url)
+    p = urlparse(n)
+    if len(p.path) > 1 and p.path.endswith("/"):
+        n = urlunparse((p.scheme, p.netloc, p.path.rstrip("/"), "", p.query, ""))
+    return n
 
 
 async def crawl(
@@ -111,9 +122,10 @@ async def crawl(
     heap: list[tuple[float, int, str, str]] = [(0.0, 0, start, "")]
     while heap and len(pages) < budget:
         neg, d, url, _ctx = heapq.heappop(heap)
-        if url in seen:
+        key = dedupe_key(url)
+        if key in seen:
             continue
-        seen.add(url)
+        seen.add(key)
         if d > 0:
             h = urlparse(url).hostname or ""
             same = registrable_domain(h) == base_reg or (
@@ -130,7 +142,7 @@ async def crawl(
         if d < depth:
             for link in page.get("links", [])[:MAX_LINKS_PER_PAGE]:
                 lu = normalize_url(link["url"])
-                if lu in seen:
+                if dedupe_key(lu) in seen:
                     continue
                 s = rank_score(lu, link.get("anchor", ""))
                 heapq.heappush(heap, (-s, d + 1, lu, link.get("anchor", "")))
