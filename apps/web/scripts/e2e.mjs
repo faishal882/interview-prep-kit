@@ -42,7 +42,7 @@ async function main() {
   const py = path.join(apiDir, ".venv", "bin", "python");
   const server = spawn(py, ["-m", "uvicorn", "app.main:app", "--port", String(PORT)], {
     cwd: apiDir,
-    env: { ...process.env, FAKE_LLM: "1" },
+    env: { ...process.env, FAKE_LLM: "1", ENV: "development" },
     stdio: "pipe",
   });
   const kill = () => server.kill();
