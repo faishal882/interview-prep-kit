@@ -224,6 +224,8 @@ class MongoPageCache:
 
 
 class MongoThrottles:
+    WINDOW_S = 3600.0
+
     def __init__(self, db):
         self._col = db["throttles"]
 
@@ -232,7 +234,13 @@ class MongoThrottles:
         return list((doc or {}).get("times", []))
 
     async def set_times(self, key: str, times: list[float]) -> None:
-        await self._col.replace_one({"_id": key}, {"_id": key, "times": list(times)}, upsert=True)
+        import datetime as _dt
+        await self._col.replace_one(
+            {"_id": key},
+            {"_id": key, "times": list(times),
+             "expires": _dt.datetime.now(_dt.timezone.utc) + _dt.timedelta(seconds=self.WINDOW_S)},
+            upsert=True,
+        )
 
 
 async def ensure_indexes(db) -> None:
@@ -247,7 +255,7 @@ async def ensure_indexes(db) -> None:
     await db["jobs"].create_index("status")
     await db["practice"].create_index("reviews")
     await db["page_cache"].create_index("expires_at", expireAfterSeconds=0)
-    await db["throttles"].create_index("times")
+    await db["throttles"].create_index("expires", expireAfterSeconds=0)
     _ = ASCENDING
 
 

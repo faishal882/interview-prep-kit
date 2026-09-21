@@ -180,7 +180,15 @@ then step failure. Rate limits → backoff with jitter, then recorded step failu
 
 ## Key decisions, trade-offs, limitations
 
-- Single API instance assumed (in-process worker; stale jobs requeued once, then retryable).
+- Single API instance assumed (in-process worker loop plus request-path dispatch bursts
+  sharing one atomic claim; stale jobs requeued once, then retryable).
+- Auth: login-only web app; registration closed by default and users are provisioned
+  with `npm run users:create -- --email you@x.co --password '...'` (`REGISTRATION_OPEN=true`
+  reopens it explicitly). Session cookies are `Secure` in production. Per-user quotas
+  default to 10 Kits/day, 50 stored Kits and 1 concurrent generation; login is throttled
+  per client address plus account in a bounded, expiring store; Argon2id only, hashed
+  off the request loop, passwords bounded to 200 chars; mutating requests in production
+  require an allowed origin and startup refuses to run without the setting.
 - `failed` batch status reserved for no-valid-Kit cases (`INVALID_INPUT`, `LLM_UNAVAILABLE`,
   `KIT_INVALID`, `TIMEOUT`, `MISSING_CREDENTIALS`); unreachable company is `ok`.
 - Single-provider LLM limits are volatile → backoff + limiter; verify at build time.

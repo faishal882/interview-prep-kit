@@ -203,6 +203,8 @@ class MemoryPageCache:
 
 
 class MemoryThrottles:
+    MAX_KEYS = 10000
+
     def __init__(self):
         self._times: dict[str, list[float]] = {}
 
@@ -211,6 +213,8 @@ class MemoryThrottles:
 
     async def set_times(self, key: str, times: list[float]) -> None:
         self._times[key] = list(times)
+        while len(self._times) > self.MAX_KEYS:
+            self._times.pop(next(iter(self._times)))
 
 
 class MemoryStore:

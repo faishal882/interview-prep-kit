@@ -5,6 +5,11 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 os.environ.setdefault("FAKE_LLM", "1")
+# Tests exercise the development server surface; production-only fail-closed
+# behaviour is covered by dedicated tests with patched settings.
+os.environ.setdefault("ENV", "development")
+# Registration is closed by default; tests provision users through the API.
+os.environ.setdefault("REGISTRATION_OPEN", "true")
 
 
 @pytest.fixture(autouse=True)
