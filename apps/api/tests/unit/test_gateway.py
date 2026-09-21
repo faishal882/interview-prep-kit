@@ -154,10 +154,11 @@ def test_key_in_header_not_url_and_not_in_errors():
 
 def _no_creds_settings(monkeypatch):
     # Patch the get_settings name resolved by each module under test
-    # (both bind it with `from app.config import get_settings`).
+    # (they bind it with `from app.config import get_settings`).
     from types import SimpleNamespace
     import app.api.routers.kits as kits_mod
     import app.cli.evaluate as evalmod
+    import app.jobs.worker as worker_mod
     stub = SimpleNamespace(FAKE_LLM="", GEMINI_API_KEY="", GEMINI_MODEL="m",
                            ALLOW_PRIVATE_URLS=False, MAX_CRAWL_PAGES=4, CRAWL_DEPTH=1,
                            STEP_TIMEOUT_S=60, OVERALL_TIMEOUT_S=240, MAX_JD_CHARS=30000)
@@ -165,6 +166,7 @@ def _no_creds_settings(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setattr(kits_mod, "get_settings", lambda: stub)
     monkeypatch.setattr(evalmod, "get_settings", lambda: stub)
+    monkeypatch.setattr(worker_mod, "get_settings", lambda: stub)
 
 
 def test_batch_fails_fast_without_key_or_explicit_fake(monkeypatch, tmp_path):
@@ -176,8 +178,8 @@ def test_batch_fails_fast_without_key_or_explicit_fake(monkeypatch, tmp_path):
 
 def test_server_deps_refuse_silent_fake(monkeypatch):
     _no_creds_settings(monkeypatch)
-    from app.api.routers import kits as kits_mod
+    from app.jobs import worker as worker_mod
     with pytest.raises(KitError) as ei:
-        kits_mod._deps_for_server()
+        worker_mod.server_deps()
     assert ei.value.code == Codes.MISSING_CREDENTIALS
     _ = router_mod  # keep import used
