@@ -35,7 +35,7 @@ class MemoryUsers:
 
     async def by_email(self, email: str) -> dict | None:
         uid = self._by_email.get(email.lower())
-        return self.by_id(uid) if uid else None
+        return await self.by_id(uid) if uid else None
 
 
 class MemorySessions:
@@ -106,9 +106,9 @@ class MemoryJobs:
         self._jobs[doc["id"]] = _clone(doc)
 
     async def create_active(self, doc: dict) -> None:
-        if self.active_for_kit(doc["kit_id"]) is not None:
+        if await self.active_for_kit(doc["kit_id"]) is not None:
             raise ConflictError("active job exists for kit")
-        self.create(doc)
+        await self.create(doc)
 
     async def get(self, job_id: str) -> dict | None:
         j = self._jobs.get(job_id)
@@ -123,7 +123,7 @@ class MemoryJobs:
                 return _clone(j)
         return None
 
-    def running_count(self) -> int:
+    async def running_count(self) -> int:
         return sum(1 for j in self._jobs.values() if j.get("status") == "running")
 
     async def save(self, doc: dict) -> None:

@@ -16,6 +16,15 @@ def _dt(ts: float) -> datetime.datetime:
     return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
 
 
+def _to_ts(value: object) -> float:
+    """BSON datetimes come back naive (UTC); interpret them as UTC, never local."""
+    if isinstance(value, datetime.datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=datetime.timezone.utc)
+        return value.timestamp()
+    return float(value)  # type: ignore[arg-type]
+
+
 class MongoUsers:
     def __init__(self, db):
         self._col = db["users"]
@@ -63,8 +72,7 @@ class MongoSessions:
         doc = await self._col.find_one({"_id": digest})
         if not doc:
             return None
-        exp = doc["expires_at"]
-        ts = exp.timestamp() if isinstance(exp, datetime.datetime) else float(exp)
+        ts = _to_ts(doc["expires_at"])
         if ts < time.time():
             await self._col.delete_one({"_id": digest})
             return None
@@ -170,8 +178,7 @@ class MongoPageCache:
         if not doc:
             return None
         exp = doc.get("expires_at")
-        now = datetime.datetime.now(datetime.timezone.utc)
-        if isinstance(exp, datetime.datetime) and exp < now:
+        if exp is not None and _to_ts(exp) < time.time():
             await self._col.delete_one({"_id": url})
             return None
         return dict(doc.get("page", {}))
