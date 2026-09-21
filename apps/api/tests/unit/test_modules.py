@@ -82,6 +82,5 @@ def test_dedupe_key_normalisation():
 
 
 def test_gaps_empty_when_all_covered():
-    reqs = [{"id": "r1"}, {"id": "r2"}]
-    qs = [{"requirement_ids": ["r1", "r2"]}]
-    assert compute_gaps(reqs, qs) == []
+    assert compute_gaps(["r1", "r2"], [{"requirement_ids": ["r1", "r2"]}]) == []
+    assert compute_gaps(["r1", "r2"], [{"requirement_ids": ["r1"]}]) == ["r2"]
