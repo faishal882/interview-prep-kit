@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.responses import CheckOut, OkOut, PracticeSummaryOut, QueueOut, WeakSpotsOut
 from app.domain.errors import Codes, KitError
 from app.persistence.store import get_store
 from app.practice.prioritizer import order_queue
@@ -14,7 +15,7 @@ from app.practice.prioritizer import order_queue
 router = APIRouter()
 
 
-@router.get("/api/kits/{kit_id}/practice/queue")
+@router.get("/api/kits/{kit_id}/practice/queue", response_model=QueueOut)
 async def queue(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit") or {}
@@ -32,7 +33,7 @@ class Review(BaseModel):
     confidence: int
 
 
-@router.post("/api/kits/{kit_id}/practice/reviews")
+@router.post("/api/kits/{kit_id}/practice/reviews", response_model=OkOut)
 async def review(kit_id: str, body: Review, user: dict = Depends(current_user)) -> dict:
     if body.confidence not in (1, 2, 3):
         raise KitError(Codes.INVALID_INPUT, "confidence 1..3")
@@ -42,7 +43,7 @@ async def review(kit_id: str, body: Review, user: dict = Depends(current_user)) 
     return {"ok": True}
 
 
-@router.get("/api/kits/{kit_id}/practice/summary")
+@router.get("/api/kits/{kit_id}/practice/summary", response_model=PracticeSummaryOut)
 async def summary(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit") or {}
@@ -53,7 +54,7 @@ async def summary(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return {"total": len(cards), "covered": covered, "uncovered": len(cards) - covered}
 
 
-@router.get("/api/kits/{kit_id}/practice/weak-spots")
+@router.get("/api/kits/{kit_id}/practice/weak-spots", response_model=WeakSpotsOut)
 async def weak_spots(kit_id: str, user: dict = Depends(current_user)) -> dict:
     """Rank Requirements by readiness with reasons (practice Confidence, coverage, priority)."""
     k = await get_kit_or_404(kit_id, user["id"])
@@ -91,7 +92,7 @@ class CheckBody(BaseModel):
     answer: str
 
 
-@router.post("/api/kits/{kit_id}/practice/check")
+@router.post("/api/kits/{kit_id}/practice/check", response_model=CheckOut)
 async def check(kit_id: str, body: CheckBody, user: dict = Depends(current_user)) -> dict:
     if len(body.answer) > 10000:
         raise KitError(Codes.INVALID_INPUT, "answer too long")

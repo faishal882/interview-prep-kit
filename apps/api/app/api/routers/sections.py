@@ -6,6 +6,7 @@ import time
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.responses import MoveOut, OkOut, RegenOut, ScheduleDayOut
 from app.api.schemas.items import ScheduleDayPatch, ScheduleMove
 from app.config import get_settings
 from app.domain.errors import Codes, KitError
@@ -15,7 +16,7 @@ from app.scheduling.allocator import day_minutes
 router = APIRouter()
 
 
-@router.post("/api/kits/{kit_id}/sections/{section}/regenerate")
+@router.post("/api/kits/{kit_id}/sections/{section}/regenerate", response_model=RegenOut)
 async def regenerate(kit_id: str, section: str, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
     from app.jobs.runner import new_job
     from app.jobs.worker import drain_pending_jobs
@@ -54,7 +55,7 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
     return {"job_id": job["id"]}
 
 
-@router.post("/api/kits/{kit_id}/sections/brief/accept")
+@router.post("/api/kits/{kit_id}/sections/brief/accept", response_model=OkOut)
 async def accept_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
@@ -70,7 +71,7 @@ async def accept_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return {"ok": True}
 
 
-@router.post("/api/kits/{kit_id}/sections/brief/reject")
+@router.post("/api/kits/{kit_id}/sections/brief/reject", response_model=OkOut)
 async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     if not k.get("kit"):
@@ -80,7 +81,7 @@ async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return {"ok": True}
 
 
-@router.post("/api/kits/{kit_id}/requirements/{requirement_id}/generate")
+@router.post("/api/kits/{kit_id}/requirements/{requirement_id}/generate", response_model=RegenOut)
 async def generate_for_requirement(kit_id: str, requirement_id: str, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
     """Targeted generation: a real job producing Questions for exactly one Requirement."""
     from app.jobs.runner import new_job
@@ -107,7 +108,7 @@ async def generate_for_requirement(kit_id: str, requirement_id: str, background:
     return {"job_id": job["id"]}
 
 
-@router.patch("/api/kits/{kit_id}/schedule/days/{day}")
+@router.patch("/api/kits/{kit_id}/schedule/days/{day}", response_model=ScheduleDayOut)
 async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Depends(current_user)) -> dict:
     """Edit a day's focus text (manual Schedule edits preserved until rebuild)."""
     data = ScheduleDayPatch(**body)
@@ -132,7 +133,7 @@ async def patch_schedule_day(kit_id: str, day: int, body: dict, user: dict = Dep
     return target
 
 
-@router.post("/api/kits/{kit_id}/schedule/move")
+@router.post("/api/kits/{kit_id}/schedule/move", response_model=MoveOut)
 async def move_schedule_question(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
     """Move a Question to another day on the Schedule."""
     data = ScheduleMove(**body)

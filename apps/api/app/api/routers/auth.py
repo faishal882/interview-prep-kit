@@ -14,6 +14,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.deps import client_address, current_user
+from app.api.schemas.responses import OkOut, UserOut
 from app.config import get_settings
 from app.domain.errors import Codes, KitError
 from app.persistence.errors import ConflictError
@@ -45,7 +46,7 @@ def _throttle_key(request: Request | None, account: str) -> str:
     return f"login:{client_address(request)}:{account}"
 
 
-@router.post("/api/auth/register")
+@router.post("/api/auth/register", response_model=UserOut)
 async def register(body: Creds, response: Response) -> dict:
     if not get_settings().REGISTRATION_OPEN:
         raise KitError(Codes.FORBIDDEN, "registration is closed; ask an operator for an account")
@@ -65,7 +66,7 @@ async def register(body: Creds, response: Response) -> dict:
     return {"id": u["id"], "email": u["email"]}
 
 
-@router.post("/api/auth/login")
+@router.post("/api/auth/login", response_model=UserOut)
 async def login(body: Creds, response: Response, request: Request) -> dict:
     key = body.email.strip().lower()
     now = time.time()
@@ -86,7 +87,7 @@ async def login(body: Creds, response: Response, request: Request) -> dict:
     return {"id": u["id"], "email": u["email"]}
 
 
-@router.post("/api/auth/logout")
+@router.post("/api/auth/logout", response_model=OkOut)
 async def logout(response: Response, session: Annotated[str | None, Cookie()] = None) -> dict:
     if session:
         await get_store().sessions.delete(hashlib.sha256(session.encode()).hexdigest())
@@ -94,6 +95,6 @@ async def logout(response: Response, session: Annotated[str | None, Cookie()] = 
     return {"ok": True}
 
 
-@router.get("/api/me")
+@router.get("/api/me", response_model=UserOut)
 async def me(user: dict = Depends(current_user)) -> dict:
     return {"id": user["id"], "email": user["email"]}

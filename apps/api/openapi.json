@@ -25,9 +25,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Register Api Auth Register Post"
+                  "$ref": "#/components/schemas/UserOut"
                 }
               }
             }
@@ -65,9 +63,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Login Api Auth Login Post"
+                  "$ref": "#/components/schemas/UserOut"
                 }
               }
             }
@@ -113,9 +109,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Logout Api Auth Logout Post"
+                  "$ref": "#/components/schemas/OkOut"
                 }
               }
             }
@@ -161,9 +155,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Me Api Me Get"
+                  "$ref": "#/components/schemas/UserOut"
                 }
               }
             }
@@ -219,9 +211,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Create Kit Api Kits Post"
+                  "$ref": "#/components/schemas/KitCreateOut"
                 }
               }
             }
@@ -265,9 +255,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Kits Api Kits Get"
+                  "$ref": "#/components/schemas/KitListOut"
                 }
               }
             }
@@ -322,9 +310,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Kit Api Kits  Kit Id  Get"
+                  "$ref": "#/components/schemas/KitDocOut"
                 }
               }
             }
@@ -377,9 +363,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Kit Api Kits  Kit Id  Delete"
+                  "$ref": "#/components/schemas/OkOut"
                 }
               }
             }
@@ -434,9 +418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Export Kit Api Kits  Kit Id  Export Get"
+                  "$ref": "#/components/schemas/ExportOut"
                 }
               }
             }
@@ -491,9 +473,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Job Api Jobs  Job Id  Get"
+                  "$ref": "#/components/schemas/JobOut"
                 }
               }
             }
@@ -553,9 +533,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Batch Upload Api Kits Batch Post"
+                  "$ref": "#/components/schemas/BatchOut"
                 }
               }
             }
@@ -583,9 +561,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Health Api Health Get"
+                  "$ref": "#/components/schemas/HealthOut"
                 }
               }
             }
@@ -651,8 +627,20 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/QuestionOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FlashcardOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RequirementOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BriefOut"
+                    }
+                  ],
                   "title": "Response Create Item Api Kits  Kit Id   Collection  Post"
                 }
               }
@@ -738,8 +726,20 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/QuestionOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FlashcardOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RequirementOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BriefOut"
+                    }
+                  ],
                   "title": "Response Patch Item Api Kits  Kit Id   Collection   Item Id  Patch"
                 }
               }
@@ -811,9 +811,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Item Api Kits  Kit Id   Collection   Item Id  Delete"
+                  "$ref": "#/components/schemas/DeleteItemOut"
                 }
               }
             }
@@ -867,7 +865,9 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReorderBody"
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
               }
             }
           }
@@ -878,9 +878,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Reorder Api Kits  Kit Id  Questions Reorder Post"
+                  "$ref": "#/components/schemas/QuestionOut"
                 }
               }
             }
@@ -944,9 +942,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Regenerate Api Kits  Kit Id  Sections  Section  Regenerate Post"
+                  "$ref": "#/components/schemas/RegenOut"
                 }
               }
             }
@@ -1001,9 +997,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Accept Brief Api Kits  Kit Id  Sections Brief Accept Post"
+                  "$ref": "#/components/schemas/OkOut"
                 }
               }
             }
@@ -1058,9 +1052,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Reject Brief Api Kits  Kit Id  Sections Brief Reject Post"
+                  "$ref": "#/components/schemas/OkOut"
                 }
               }
             }
@@ -1081,7 +1073,7 @@
     "/api/kits/{kit_id}/requirements/{requirement_id}/generate": {
       "post": {
         "summary": "Generate For Requirement",
-        "description": "Targeted generation: Questions for exactly one Requirement, nothing else touched.",
+        "description": "Targeted generation: a real job producing Questions for exactly one Requirement.",
         "operationId": "generate_for_requirement_api_kits__kit_id__requirements__requirement_id__generate_post",
         "parameters": [
           {
@@ -1125,9 +1117,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Generate For Requirement Api Kits  Kit Id  Requirements  Requirement Id  Generate Post"
+                  "$ref": "#/components/schemas/RegenOut"
                 }
               }
             }
@@ -1204,9 +1194,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Patch Schedule Day Api Kits  Kit Id  Schedule Days  Day  Patch"
+                  "$ref": "#/components/schemas/ScheduleDayOut"
                 }
               }
             }
@@ -1274,9 +1262,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Move Schedule Question Api Kits  Kit Id  Schedule Move Post"
+                  "$ref": "#/components/schemas/MoveOut"
                 }
               }
             }
@@ -1331,9 +1317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Queue Api Kits  Kit Id  Practice Queue Get"
+                  "$ref": "#/components/schemas/QueueOut"
                 }
               }
             }
@@ -1398,9 +1382,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Review Api Kits  Kit Id  Practice Reviews Post"
+                  "$ref": "#/components/schemas/OkOut"
                 }
               }
             }
@@ -1455,9 +1437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Summary Api Kits  Kit Id  Practice Summary Get"
+                  "$ref": "#/components/schemas/PracticeSummaryOut"
                 }
               }
             }
@@ -1513,9 +1493,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Weak Spots Api Kits  Kit Id  Practice Weak Spots Get"
+                  "$ref": "#/components/schemas/WeakSpotsOut"
                 }
               }
             }
@@ -1580,9 +1558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Check Api Kits  Kit Id  Practice Check Post"
+                  "$ref": "#/components/schemas/CheckOut"
                 }
               }
             }
@@ -1603,6 +1579,41 @@
   },
   "components": {
     "schemas": {
+      "AcceptedEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kit_id": {
+            "type": "string",
+            "title": "Kit Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "kit_id"
+        ],
+        "title": "AcceptedEntry"
+      },
       "BatchEntry": {
         "properties": {
           "jd": {
@@ -1629,6 +1640,88 @@
         "type": "object",
         "title": "BatchEntry"
       },
+      "BatchOut": {
+        "properties": {
+          "accepted": {
+            "items": {
+              "$ref": "#/components/schemas/AcceptedEntry"
+            },
+            "type": "array",
+            "title": "Accepted"
+          },
+          "rejected": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedEntry"
+            },
+            "type": "array",
+            "title": "Rejected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accepted",
+          "rejected"
+        ],
+        "title": "BatchOut"
+      },
+      "BriefMeta": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "title": "Origin",
+            "default": "generated"
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "default": false
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned",
+            "default": false
+          },
+          "rev": {
+            "type": "integer",
+            "title": "Rev",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "BriefMeta"
+      },
+      "BriefOut": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "what_they_do": {
+            "type": "string",
+            "title": "What They Do"
+          },
+          "hiring_process": {
+            "type": "string",
+            "title": "Hiring Process"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "summary",
+          "what_they_do",
+          "hiring_process",
+          "sources"
+        ],
+        "title": "BriefOut"
+      },
       "CheckBody": {
         "properties": {
           "question_id": {
@@ -1646,6 +1739,73 @@
           "answer"
         ],
         "title": "CheckBody"
+      },
+      "CheckOut": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CheckPoint"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "limits": {
+            "type": "string",
+            "title": "Limits"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "results",
+          "method",
+          "limits"
+        ],
+        "title": "CheckOut"
+      },
+      "CheckPoint": {
+        "properties": {
+          "point": {
+            "type": "string",
+            "title": "Point"
+          },
+          "covered": {
+            "type": "boolean",
+            "title": "Covered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "point",
+          "covered"
+        ],
+        "title": "CheckPoint"
+      },
+      "CoverageOut": {
+        "properties": {
+          "uncovered_requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Uncovered Requirement Ids"
+          },
+          "passes": {
+            "type": "integer",
+            "title": "Passes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "uncovered_requirement_ids",
+          "passes"
+        ],
+        "title": "CoverageOut"
       },
       "CreateKit": {
         "properties": {
@@ -1677,19 +1837,157 @@
         "properties": {
           "email": {
             "type": "string",
+            "maxLength": 320,
             "title": "Email"
           },
           "password": {
             "type": "string",
+            "maxLength": 200,
             "title": "Password"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "email",
           "password"
         ],
         "title": "Creds"
+      },
+      "DeleteItemOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "flagged": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flagged"
+          }
+        },
+        "type": "object",
+        "title": "DeleteItemOut"
+      },
+      "ErrorInfo": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "default": ""
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ErrorInfo"
+      },
+      "ExportOut": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceOut"
+          },
+          "research_log": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Research Log"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "company_brief": {
+            "$ref": "#/components/schemas/BriefOut"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleOut"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionOut"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "flashcards": {
+            "items": {
+              "$ref": "#/components/schemas/FlashcardOut"
+            },
+            "type": "array",
+            "title": "Flashcards"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ScheduleOut"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageOut"
+          },
+          "_brief_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ExportOut"
+      },
+      "FlashcardOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "front": {
+            "type": "string",
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "title": "Back"
+          },
+          "requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requirement Ids"
+          },
+          "_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "front",
+          "back",
+          "requirement_ids"
+        ],
+        "title": "FlashcardOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1704,24 +2002,161 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "ReorderBody": {
+      "HealthOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "HealthOut"
+      },
+      "ItemMeta": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "title": "Origin",
+            "default": "generated"
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "default": false
+          },
+          "pinned": {
+            "type": "boolean",
+            "title": "Pinned",
+            "default": false
+          },
+          "rev": {
+            "type": "integer",
+            "title": "Rev",
+            "default": 1
+          },
+          "order": {
+            "type": "string",
+            "title": "Order",
+            "default": ""
+          },
+          "gen_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gen Run"
+          }
+        },
+        "type": "object",
+        "title": "ItemMeta"
+      },
+      "JobOut": {
         "properties": {
           "id": {
             "type": "string",
             "title": "Id"
           },
-          "category": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Category"
+          "kit_id": {
+            "type": "string",
+            "title": "Kit Id"
           },
-          "after_id": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/JobStepOut"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retryable": {
+            "type": "boolean",
+            "title": "Retryable"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "kit_id",
+          "kind",
+          "status",
+          "steps",
+          "retryable"
+        ],
+        "title": "JobOut"
+      },
+      "JobStepOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "started_at": {
             "anyOf": [
               {
                 "type": "string"
@@ -1730,14 +2165,568 @@
                 "type": "null"
               }
             ],
-            "title": "After Id"
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "name",
+          "status",
+          "message"
+        ],
+        "title": "JobStepOut"
+      },
+      "KitContentOut": {
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceOut"
+          },
+          "research_log": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Research Log"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "company_brief": {
+            "$ref": "#/components/schemas/BriefOut"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleOut"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionOut"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "flashcards": {
+            "items": {
+              "$ref": "#/components/schemas/FlashcardOut"
+            },
+            "type": "array",
+            "title": "Flashcards"
+          },
+          "schedule": {
+            "$ref": "#/components/schemas/ScheduleOut"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageOut"
+          },
+          "_brief_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "KitContentOut"
+      },
+      "KitCreateOut": {
+        "properties": {
+          "kit_id": {
+            "type": "string",
+            "title": "Kit Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "duplicate": {
+            "type": "boolean",
+            "title": "Duplicate",
+            "default": false
           }
         },
         "type": "object",
         "required": [
-          "id"
+          "kit_id"
         ],
-        "title": "ReorderBody"
+        "title": "KitCreateOut"
+      },
+      "KitDocOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "input": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KitInputOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/KitContentOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedule_stale": {
+            "type": "boolean",
+            "title": "Schedule Stale",
+            "default": false
+          },
+          "proposals": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProposalOut"
+            },
+            "type": "object",
+            "title": "Proposals"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "KitDocOut"
+      },
+      "KitInputOut": {
+        "properties": {
+          "jd": {
+            "type": "string",
+            "title": "Jd",
+            "default": ""
+          },
+          "company_url": {
+            "type": "string",
+            "title": "Company Url",
+            "default": ""
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days",
+            "default": 5
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "KitInputOut"
+      },
+      "KitListOut": {
+        "properties": {
+          "kits": {
+            "items": {
+              "$ref": "#/components/schemas/KitSummaryOut"
+            },
+            "type": "array",
+            "title": "Kits"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kits"
+        ],
+        "title": "KitListOut"
+      },
+      "KitSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "generating",
+              "ready",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "requirement_count": {
+            "type": "integer",
+            "title": "Requirement Count"
+          },
+          "question_count": {
+            "type": "integer",
+            "title": "Question Count"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "company",
+          "role",
+          "days",
+          "requirement_count",
+          "question_count"
+        ],
+        "title": "KitSummaryOut"
+      },
+      "MoveOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          },
+          "day": {
+            "type": "integer",
+            "title": "Day",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "MoveOut"
+      },
+      "OkOut": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "OkOut"
+      },
+      "PracticeSummaryOut": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "covered": {
+            "type": "integer",
+            "title": "Covered"
+          },
+          "uncovered": {
+            "type": "integer",
+            "title": "Uncovered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "covered",
+          "uncovered"
+        ],
+        "title": "PracticeSummaryOut"
+      },
+      "ProposalOut": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": ""
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ProposalOut"
+      },
+      "QuestionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "requirement_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Requirement Ids"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "technical",
+              "behavioural",
+              "system-design",
+              "company-fit"
+            ],
+            "title": "Category"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "answer_outline": {
+            "type": "string",
+            "title": "Answer Outline"
+          },
+          "difficulty": {
+            "type": "integer",
+            "title": "Difficulty"
+          },
+          "outline_points": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outline Points"
+          },
+          "_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "requirement_ids",
+          "category",
+          "prompt",
+          "answer_outline",
+          "difficulty",
+          "outline_points"
+        ],
+        "title": "QuestionOut"
+      },
+      "QueueOut": {
+        "properties": {
+          "queue": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Queue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "queue"
+        ],
+        "title": "QueueOut"
+      },
+      "RegenOut": {
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "RegenOut"
+      },
+      "RejectedEntry": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reason"
+        ],
+        "title": "RejectedEntry"
+      },
+      "RequirementOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "technical",
+              "behavioural",
+              "domain"
+            ],
+            "title": "Kind"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "must",
+              "nice"
+            ],
+            "title": "Priority"
+          },
+          "_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ItemMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "kind",
+          "priority"
+        ],
+        "title": "RequirementOut"
       },
       "Review": {
         "properties": {
@@ -1756,6 +2745,157 @@
           "confidence"
         ],
         "title": "Review"
+      },
+      "RoleOut": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "seniority": {
+            "type": "string",
+            "title": "Seniority"
+          },
+          "responsibilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Responsibilities"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementOut"
+            },
+            "type": "array",
+            "title": "Requirements"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "title",
+          "seniority",
+          "responsibilities",
+          "requirements"
+        ],
+        "title": "RoleOut"
+      },
+      "ScheduleDayOut": {
+        "properties": {
+          "day": {
+            "type": "integer",
+            "title": "Day"
+          },
+          "focus": {
+            "type": "string",
+            "title": "Focus"
+          },
+          "question_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Question Ids"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "day",
+          "focus",
+          "question_ids",
+          "minutes"
+        ],
+        "title": "ScheduleDayOut"
+      },
+      "ScheduleOut": {
+        "properties": {
+          "days_available": {
+            "type": "integer",
+            "title": "Days Available"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleDayOut"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "days_available",
+          "days"
+        ],
+        "title": "ScheduleOut"
+      },
+      "SourceOut": {
+        "properties": {
+          "company": {
+            "type": "string",
+            "title": "Company",
+            "default": ""
+          },
+          "company_url": {
+            "type": "string",
+            "title": "Company Url",
+            "default": ""
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": ""
+          },
+          "location": {
+            "type": "string",
+            "title": "Location",
+            "default": ""
+          },
+          "jd_chars": {
+            "type": "integer",
+            "title": "Jd Chars",
+            "default": 0
+          },
+          "researched_at": {
+            "type": "string",
+            "title": "Researched At",
+            "default": ""
+          },
+          "pages_used": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pages Used"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "SourceOut"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "UserOut"
       },
       "ValidationError": {
         "properties": {
@@ -1796,6 +2936,65 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WeakSpotEntry": {
+        "properties": {
+          "requirement_id": {
+            "type": "string",
+            "title": "Requirement Id"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          },
+          "question_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Question Ids"
+          },
+          "flashcard_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flashcard Ids"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "requirement_id",
+          "reasons",
+          "score",
+          "question_ids",
+          "flashcard_ids"
+        ],
+        "title": "WeakSpotEntry"
+      },
+      "WeakSpotsOut": {
+        "properties": {
+          "spots": {
+            "items": {
+              "$ref": "#/components/schemas/WeakSpotEntry"
+            },
+            "type": "array",
+            "title": "Spots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "spots"
+        ],
+        "title": "WeakSpotsOut"
       }
     }
   }

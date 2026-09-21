@@ -6,6 +6,7 @@ import uuid
 from fastapi import APIRouter, Depends
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.responses import DeleteItemOut, ItemOut, QuestionOut
 from app.api.schemas.items import (
     BriefPatch,
     FlashcardCreate,
@@ -66,7 +67,7 @@ def _fix_minutes(kit: dict) -> None:
         day["minutes"] = day_minutes(day.get("question_ids", []), kit.get("questions", []))
 
 
-@router.post("/api/kits/{kit_id}/{collection}")
+@router.post("/api/kits/{kit_id}/{collection}", response_model=ItemOut)
 async def create_item(kit_id: str, collection: str, body: dict, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
@@ -102,7 +103,7 @@ async def create_item(kit_id: str, collection: str, body: dict, user: dict = Dep
     return item
 
 
-@router.patch("/api/kits/{kit_id}/{collection}/{item_id}")
+@router.patch("/api/kits/{kit_id}/{collection}/{item_id}", response_model=ItemOut)
 async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
@@ -165,7 +166,7 @@ async def patch_item(kit_id: str, collection: str, item_id: str, body: dict, use
     return item
 
 
-@router.delete("/api/kits/{kit_id}/{collection}/{item_id}")
+@router.delete("/api/kits/{kit_id}/{collection}/{item_id}", response_model=DeleteItemOut)
 async def delete_item(kit_id: str, collection: str, item_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
@@ -197,7 +198,7 @@ async def delete_item(kit_id: str, collection: str, item_id: str, user: dict = D
     raise KitError(Codes.NOT_FOUND, "unknown collection")
 
 
-@router.post("/api/kits/{kit_id}/questions/reorder")
+@router.post("/api/kits/{kit_id}/questions/reorder", response_model=QuestionOut)
 async def reorder(kit_id: str, body: dict, user: dict = Depends(current_user)) -> dict:
     data = ReorderBodyStrict(**body)
     k = await get_kit_or_404(kit_id, user["id"])

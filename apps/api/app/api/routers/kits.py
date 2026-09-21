@@ -8,6 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from app.api.deps import current_user, get_kit_or_404
+from app.api.schemas.responses import (BatchOut, ExportOut, HealthOut, JobOut, KitCreateOut, KitDocOut, KitListOut, OkOut)
 from app.config import get_settings
 from app.domain.errors import Codes, KitError
 from app.jobs.runner import new_job
@@ -32,7 +33,7 @@ class CreateKit(BaseModel):
 # worker loop performs recovery and steady-state dispatch.
 
 
-@router.post("/api/kits")
+@router.post("/api/kits", response_model=KitCreateOut)
 async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
     settings = get_settings()
     if not body.jd.strip():
@@ -91,7 +92,7 @@ async def create_kit(body: CreateKit, background: BackgroundTasks, user: dict = 
     return {"kit_id": kit_id, "job_id": job["id"], "duplicate": False}
 
 
-@router.get("/api/kits")
+@router.get("/api/kits", response_model=KitListOut)
 async def list_kits(user: dict = Depends(current_user)) -> dict:
     store = get_store()
     items = []
@@ -115,13 +116,13 @@ async def list_kits(user: dict = Depends(current_user)) -> dict:
     return {"kits": items}
 
 
-@router.get("/api/kits/{kit_id}")
+@router.get("/api/kits/{kit_id}", response_model=KitDocOut)
 async def get_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     doc = await get_kit_or_404(kit_id, user["id"])
     return {k: v for k, v in doc.items() if k not in ("user_id", "dedupe_key")}
 
 
-@router.delete("/api/kits/{kit_id}")
+@router.delete("/api/kits/{kit_id}", response_model=OkOut)
 async def delete_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     store = get_store()
     await get_kit_or_404(kit_id, user["id"])
@@ -131,7 +132,7 @@ async def delete_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return {"ok": True}
 
 
-@router.get("/api/kits/{kit_id}/export")
+@router.get("/api/kits/{kit_id}/export", response_model=ExportOut)
 async def export_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
@@ -157,7 +158,7 @@ async def export_kit(kit_id: str, user: dict = Depends(current_user)) -> dict:
     return out
 
 
-@router.get("/api/jobs/{job_id}")
+@router.get("/api/jobs/{job_id}", response_model=JobOut)
 async def get_job(job_id: str, user: dict = Depends(current_user)) -> dict:
     store = get_store()
     j = await store.jobs.get(job_id)
@@ -176,7 +177,7 @@ class BatchEntry(BaseModel):
     id: str = ""
 
 
-@router.post("/api/kits/batch")
+@router.post("/api/kits/batch", response_model=BatchOut)
 async def batch_upload(body: list[BatchEntry], background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
     s = get_settings()
     if len(body) > s.MAX_BATCH_ENTRIES:
@@ -221,6 +222,6 @@ async def batch_upload(body: list[BatchEntry], background: BackgroundTasks, user
     return {"accepted": accepted, "rejected": rejected}
 
 
-@router.get("/api/health")
+@router.get("/api/health", response_model=HealthOut)
 async def health() -> dict:
     return {"ok": True}
