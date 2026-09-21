@@ -69,8 +69,12 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
   types allowlisted; the page cache is bounded and expiring. Every outcome is a page
   or a recorded skip reason in the `research_log` — one dead source never fails the run. Unreachable company → `ok` Kit with
   a deterministic honest brief ("We could not retrieve …", no LLM call).
-- **Public discussion:** Hacker News via the Algolia API (keyless) + optional `SEARCH_API_KEY`;
-  skipped with reason when the company URL is private.
+- **Public discussion:** Hacker News via the Algolia API (keyless) queried with the
+  resolved company name (JD → site-declared name/title → domain); skipped with reason
+  when the company URL is private. Glassdoor/LinkedIn are not scraped.
+- **Hiring signals:** computed only from pages typed as hiring-related with strict
+  round-level patterns, so an about page mentioning "coding" or "values" sets no
+  signal. The research log records the hiring page found, or that none exists.
 - **Sources:** the company's own site; Hacker News; optional search API. Glassdoor/LinkedIn
   are not scraped (terms + blocking). `robots.txt` honoured per RFC 9309; disallowed,
   oversize, wrong-type, 4xx/5xx and timed-out pages are skipped and recorded in the

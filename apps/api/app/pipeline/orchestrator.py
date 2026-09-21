@@ -21,6 +21,7 @@ from app.pipeline.steps.questions import (
 )
 from app.retrieval import discussion as discussion_mod
 from app.retrieval.crawler import crawl
+from app.retrieval.page_typer import find_hiring_page, resolve_company_name
 from app.scheduling.allocator import allocate
 from app.validation.kit_validator import validate_kit
 
@@ -89,7 +90,6 @@ async def run_case(
     # --- parallel: extraction + retrieval ---
     emit("extract_requirements", "running")
     emit("crawl_company", "running")
-    emit("research_discussion", "running")
 
     async def do_extract() -> dict:
         prompt = EXTRACT_PROMPT.replace("{jd}", truncate("DATA:\n" + jd, 12000))
@@ -120,31 +120,44 @@ async def run_case(
             research_log["fetches"].append({"url": company_url, "reason": f"crawl failed: {exc}"})
             return []
 
-    async def do_discussion() -> dict:
+    async def do_discussion(company: str) -> dict:
         if skip_retrieval:
             return {"queried": False, "reason": "skipped", "threads": []}
-        return await discussion_mod.research("", company_url, allow_private=allow_private, client=http_client)
+        return await discussion_mod.research(company, company_url, allow_private=allow_private, client=http_client)
 
-    raw_extraction, pages, discussion = await asyncio.gather(do_extract(), do_crawl(), do_discussion())
+    raw_extraction, pages = await asyncio.gather(do_extract(), do_crawl())
     emit("extract_requirements", "done")
     emit("crawl_company", "done" if pages else "skipped", "" if pages else "no pages retrieved")
-    emit("research_discussion", "done" if discussion.get("queried") else "skipped", discussion.get("reason", ""))
 
     requirements, responsibilities, role_meta, thin = apply_extraction(jd, raw_extraction)
+
+    # --- company name: JD, then the company's site, then the domain ---
+    company_name, name_source = resolve_company_name(role_meta.get("company", ""), pages, company_url)
+    if company_name:
+        role_meta["company"] = company_name
+    research_log["company_name"] = company_name
+    research_log["company_name_source"] = name_source
+    research_log["hiring_page"] = find_hiring_page(pages)
+
+    # --- discussion uses the resolved name ---
+    emit("research_discussion", "running")
+    discussion = await do_discussion(company_name)
+    emit("research_discussion", "done" if discussion.get("queried") else "skipped", discussion.get("reason", ""))
+
     if thin or thin_hint and not requirements:
         warnings.append("thin description: few requirements extracted; kit is intentionally small")
         research_log["thin_jd"] = True
     research_log["discussion"] = discussion
 
-    # --- hiring signals ---
+    # --- hiring signals (hiring-typed pages only) ---
     emit("analyze_hiring_signals", "running")
-    page_texts = [p.get("text", "") for p in pages]
-    flags = signal_step.analyze(page_texts + [str((discussion.get("threads") or []))])
+    flags = signal_step.analyze(pages)
     research_log["hiring_signals"] = flags
     emit("analyze_hiring_signals", "done")
 
     # --- brief (deterministic template when nothing retrieved) ---
     emit("write_brief", "running")
+    page_texts = [p.get("text", "") for p in pages]
     pages_used = [p["final_url"] for p in pages if p.get("text")]
     if not pages:
         brief = {
