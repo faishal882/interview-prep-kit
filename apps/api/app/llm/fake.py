@@ -8,8 +8,10 @@ class FakeLLM:
     name = "fake"
 
     def __init__(self, script: dict[str, list[dict[str, Any]]] | None = None):
-        # script maps step-name substring -> queue of responses
-        self.script = script or {}
+        # script maps step-name substring -> queue of responses; deep-copied
+        # so one instance never drains another's queues.
+        import copy
+        self.script = copy.deepcopy(script) if script else {}
         self.calls: list[dict[str, Any]] = []
 
     async def generate_structured(self, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:

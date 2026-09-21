@@ -1,17 +1,14 @@
-"""Section regeneration as jobs: brief / one category / schedule."""
+"""Section regeneration as real jobs; schedule rebuild stays synchronous."""
 from __future__ import annotations
 
 import time
-import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 
 from app.api.deps import current_user, get_kit_or_404
 from app.api.schemas.items import ScheduleDayPatch, ScheduleMove
-from app.coverage.checker import compute_gaps
+from app.config import get_settings
 from app.domain.errors import Codes, KitError
-from app.domain.merge import merge_category
-from app.jobs.runner import new_job
 from app.persistence.store import get_store
 from app.scheduling.allocator import day_minutes
 
@@ -20,23 +17,16 @@ router = APIRouter()
 
 @router.post("/api/kits/{kit_id}/sections/{section}/regenerate")
 async def regenerate(kit_id: str, section: str, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
+    from app.jobs.runner import new_job
+    from app.jobs.worker import drain_pending_jobs
+    from app.persistence.errors import ConflictError
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
         raise KitError(Codes.NOT_FOUND, "kit not ready")
     if section == "brief":
-        meta = kit.get("_brief_meta", {})
-        if meta.get("edited") or meta.get("pinned"):
-            # proposal, not overwrite
-            proposal = {"summary": (kit.get("company_brief") or {}).get("summary", "") + " (regenerated proposal)",
-                        "status": "proposal"}
-            k.setdefault("proposals", {})["brief"] = proposal
-            await get_store().kits.save(k)
-            return {"proposal": proposal}
-        kit["company_brief"]["summary"] = (kit["company_brief"].get("summary") or "") + " (refreshed)"
-        await get_store().kits.save(k)
-        return {"ok": True}
-    if section == "schedule":
+        kind, steps = "sections:brief", ["regenerate:brief"]
+    elif section == "schedule":
         from app.scheduling.allocator import allocate
         reqs = kit["role"]["requirements"]
         days, _w = allocate(kit["questions"], reqs, kit["schedule"]["days_available"])
@@ -44,30 +34,24 @@ async def regenerate(kit_id: str, section: str, background: BackgroundTasks, use
         k["schedule_stale"] = False
         await get_store().kits.save(k)
         return {"ok": True, "warning": "manual schedule edits were replaced"}
-    if section.startswith("questions:"):
+    elif section.startswith("questions:"):
         category = section.split(":", 1)[1]
-        # snapshot revs; generate replacements (fake: template questions for gaps in this category)
-        snapshot = {q["id"]: q.get("_meta", {}).get("rev", 1) for q in kit["questions"]}
-        reqs = kit["role"]["requirements"]
-        gaps = compute_gaps([r["id"] for r in reqs], kit["questions"])
-        fresh = []
-        for i, gid in enumerate(gaps):
-            fresh.append({"id": f"q-new-{uuid.uuid4().hex[:4]}", "requirement_ids": [gid],
-                          "category": category, "prompt": f"Regenerated {category} question for {gid}",
-                          "answer_outline": "Outline.", "difficulty": 2, "outline_points": [],
-                          "_meta": {"origin": "generated", "edited": False, "pinned": False, "rev": 1, "order": "a9"}})
-        current_cat = [q for q in kit["questions"] if q.get("category") == category]
-        others = [q for q in kit["questions"] if q.get("category") != category]
-        merged = merge_category(current_cat, fresh, snapshot)
-        kit["questions"] = others + merged
-        reqs_all = [r["id"] for r in reqs]
-        kit.setdefault("coverage", {})["uncovered_requirement_ids"] = compute_gaps(reqs_all, kit["questions"])
-        await get_store().kits.save(k)
-        job = new_job(kit_id)
-        job["status"] = "done"
-        await get_store().jobs.create(job)
-        return {"ok": True, "job_id": job["id"]}
-    raise KitError(Codes.NOT_FOUND, "unknown section")
+        if category not in ("technical", "behavioural", "system-design", "company-fit"):
+            raise KitError(Codes.NOT_FOUND, "unknown section")
+        kind, steps = f"sections:questions:{category}", [f"regenerate:{category}"]
+    else:
+        raise KitError(Codes.NOT_FOUND, "unknown section")
+    store = get_store()
+    if await store.jobs.active_for_kit(kit_id):
+        raise KitError(Codes.CONFLICT, "a job is already running for this kit")
+    job = new_job(kit_id, user_id=user["id"], kind=kind,
+                  deadline=time.time() + get_settings().OVERALL_TIMEOUT_S + 60, steps=steps)
+    try:
+        await store.jobs.create_active(job)
+    except ConflictError:
+        raise KitError(Codes.CONFLICT, "a job is already running for this kit")
+    background.add_task(drain_pending_jobs)
+    return {"job_id": job["id"]}
 
 
 @router.post("/api/kits/{kit_id}/sections/brief/accept")
@@ -97,9 +81,11 @@ async def reject_brief(kit_id: str, user: dict = Depends(current_user)) -> dict:
 
 
 @router.post("/api/kits/{kit_id}/requirements/{requirement_id}/generate")
-async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict = Depends(current_user)) -> dict:
-    """Targeted generation: Questions for exactly one Requirement, nothing else touched."""
-    from app.domain.item_meta import is_protected as _prot  # noqa: F401 (kept for clarity)
+async def generate_for_requirement(kit_id: str, requirement_id: str, background: BackgroundTasks, user: dict = Depends(current_user)) -> dict:
+    """Targeted generation: a real job producing Questions for exactly one Requirement."""
+    from app.jobs.runner import new_job
+    from app.jobs.worker import drain_pending_jobs
+    from app.persistence.errors import ConflictError
     k = await get_kit_or_404(kit_id, user["id"])
     kit = k.get("kit")
     if not kit:
@@ -107,24 +93,18 @@ async def generate_for_requirement(kit_id: str, requirement_id: str, user: dict 
     req = next((r for r in kit["role"]["requirements"] if r.get("id") == requirement_id), None)
     if not req:
         raise KitError(Codes.NOT_FOUND, "requirement not found")
-    kind = req.get("kind", "technical")
-    category = {"technical": "technical", "behavioural": "behavioural", "domain": "company-fit"}.get(kind, "technical")
-    existing_prompts = {q.get("prompt") for q in kit["questions"]}
-    prompt = f"Targeted {category} question for {requirement_id}: {req.get('text', '')[:80]}"
-    if prompt in existing_prompts:
-        prompt += " (follow-up)"
-    item = {"id": f"q-new-{uuid.uuid4().hex[:4]}", "requirement_ids": [requirement_id],
-            "category": category, "prompt": prompt,
-            "answer_outline": "Outline.", "difficulty": 2, "outline_points": [],
-            "_meta": {"origin": "generated", "edited": False, "pinned": False, "rev": 1, "order": "a9"}}
-    kit["questions"].append(item)
-    reqs_all = [r["id"] for r in kit["role"]["requirements"]]
-    kit.setdefault("coverage", {})["uncovered_requirement_ids"] = compute_gaps(reqs_all, kit["questions"])
-    await get_store().kits.save(k)
-    job = new_job(kit_id)
-    job["status"] = "done"
-    await get_store().jobs.create(job)
-    return {"ok": True, "job_id": job["id"], "question_id": item["id"]}
+    store = get_store()
+    if await store.jobs.active_for_kit(kit_id):
+        raise KitError(Codes.CONFLICT, "a job is already running for this kit")
+    job = new_job(kit_id, user_id=user["id"], kind=f"requirements:{requirement_id}",
+                  deadline=time.time() + get_settings().OVERALL_TIMEOUT_S + 60,
+                  steps=[f"generate:{requirement_id}"])
+    try:
+        await store.jobs.create_active(job)
+    except ConflictError:
+        raise KitError(Codes.CONFLICT, "a job is already running for this kit")
+    background.add_task(drain_pending_jobs)
+    return {"job_id": job["id"]}
 
 
 @router.patch("/api/kits/{kit_id}/schedule/days/{day}")

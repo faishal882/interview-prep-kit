@@ -119,7 +119,10 @@ def _schedule_save(store, job) -> None:
 
 
 async def execute_job(job: dict, store) -> None:
-    fn = _EXECUTORS.get(job.get("kind", "generation"))
+    kind = job.get("kind", "generation")
+    fn = _EXECUTORS.get(kind)
+    if fn is None and kind.startswith("requirements:"):
+        fn = _make_regen(kind, kind.split(":", 1)[1])
     if fn is None:
         job["status"] = "failed"
         job["error"] = {"code": Codes.INVALID_INPUT, "message": f"unknown job kind {job.get('kind')}"}
@@ -127,6 +130,60 @@ async def execute_job(job: dict, store) -> None:
         await store.jobs.save(job)
         return
     await fn(job, store)
+
+
+def _make_regen(kind: str, section: str):
+    async def run(job: dict, store) -> None:
+        import datetime as _dt
+
+        def on_event(ev: dict) -> None:
+            now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            job["heartbeat"] = time.time()
+            for s in job.get("steps", []):
+                s["status"] = ev.get("status", s["status"])
+                s["message"] = ev.get("message", "")
+                if s["status"] in ("done", "failed"):
+                    s["finished_at"] = now
+                elif s["status"] == "running" and not s.get("started_at"):
+                    s["started_at"] = now
+            _schedule_save(store, job)
+
+        from app.config import get_settings
+        from app.regen import service as regen_service
+        settings = get_settings()
+        deps = {**server_deps(), "step_timeout_s": settings.STEP_TIMEOUT_S,
+                "overall_timeout_s": settings.OVERALL_TIMEOUT_S}
+        try:
+            if kind == "sections:brief":
+                await regen_service.regenerate_brief(store, job["kit_id"], deps, on_event)
+            elif kind.startswith("sections:questions:"):
+                await regen_service.regenerate_category(store, job["kit_id"], section, deps, on_event)
+            elif kind.startswith("requirements:"):
+                req_id = kind.split(":", 1)[1]
+                await regen_service.generate_for_requirement(store, job["kit_id"], req_id, deps, on_event)
+            else:
+                raise KitError(Codes.INVALID_INPUT, f"unknown regeneration {kind}")
+            job["status"] = "done"
+            for s in job.get("steps", []):
+                if s.get("status") in ("pending", "running"):
+                    s["status"] = "done"
+                    s["finished_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat()
+        except KitError as ke:
+            job["status"] = "failed"
+            job["error"] = {"code": ke.code, "message": ke.message}
+            job["retryable"] = True
+        except Exception as exc:
+            job["status"] = "failed"
+            job["error"] = {"code": Codes.KIT_INVALID, "message": str(exc)[:300]}
+            job["retryable"] = True
+        await store.jobs.save(job)
+
+    return run
+
+
+register_executor("sections:brief", _make_regen("sections:brief", "brief"))
+for _cat in ("technical", "behavioural", "system-design", "company-fit"):
+    register_executor(f"sections:questions:{_cat}", _make_regen(f"sections:questions:{_cat}", _cat))
 
 
 register_executor("generation", execute_generation)

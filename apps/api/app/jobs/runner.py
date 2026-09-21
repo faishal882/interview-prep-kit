@@ -15,15 +15,16 @@ STALE_AFTER = 30  # seconds without heartbeat -> stale
 
 
 def new_job(kit_id: str, *, user_id: str = "", kind: str = "generation",
-              deadline: float | None = None) -> dict:
+              deadline: float | None = None, steps: list[str] | None = None) -> dict:
     now = time.time()
+    names = steps if steps is not None else STEPS
     return {
         "id": uuid.uuid4().hex[:12],
         "kit_id": kit_id,
         "user_id": user_id,
         "kind": kind,
         "status": "pending",  # pending|running|done|failed
-        "steps": [{"name": s, "status": "pending", "message": "", "started_at": None, "finished_at": None} for s in STEPS],
+        "steps": [{"name": s, "status": "pending", "message": "", "started_at": None, "finished_at": None} for s in names],
         "attempts": 0,
         "heartbeat": now,
         "created_at": now,
