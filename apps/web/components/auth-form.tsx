@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/lib/auth";
+import { safeReturnTo } from "@/lib/security";
 import { ApiError } from "@/lib/errors";
 
 const schema = z.object({
@@ -19,7 +20,7 @@ export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const expired = params.get("expired") === "1";
-  const returnTo = params.get("returnTo") || "/kits";
+  const returnTo = safeReturnTo(params.get("returnTo"));
   const [serverError, setServerError] = useState("");
   const {
     register: field,
