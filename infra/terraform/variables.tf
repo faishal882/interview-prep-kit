@@ -40,5 +40,6 @@ variable "budget_usd" {
 
 variable "budget_email" {
   type        = string
-  description = "Email for the AWS Budgets alarm."
+  default     = ""
+  description = "Email for the AWS Budgets alarm. Leave empty to skip creating the budget."
 }

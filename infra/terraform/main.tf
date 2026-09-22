@@ -184,6 +184,7 @@ resource "aws_cloudfront_distribution" "api" {
 }
 
 resource "aws_budgets_budget" "monthly" {
+  count             = var.budget_email == "" ? 0 : 1
   name              = "${var.name_prefix}-monthly"
   budget_type       = "COST"
   limit_amount      = var.budget_usd

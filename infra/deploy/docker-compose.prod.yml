@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     command: ["--wiredTigerCacheSizeGB", "0.25", "--bind_ip_all"]
     volumes:
-      - mongo-data:/data/db
+      - /var/lib/trao-mongo/data:/data/db
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
@@ -40,6 +40,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  mongo-data:
