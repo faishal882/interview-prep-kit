@@ -37,6 +37,27 @@ npm test                                             # pytest: unit + property +
 npm run verify                                       # lint (if ruff) + tests + drift + high-severity audits
 ```
 
+## Run the full app locally
+
+```bash
+npm run setup                 # backend virtualenv and dependencies (once)
+npm run web:install           # frontend dependencies (once)
+cp .env.example .env          # then set GEMINI_API_KEY (or FAKE_LLM=1 for an offline run)
+npm run dev:mongo             # starts Mongo via docker compose, then the API on :8000 (auto-reload)
+npm run web:dev               # web on :3000; proxies /api/* to API_ORIGIN (default http://127.0.0.1:8000)
+```
+
+- **Storage:** the API uses MongoDB when `MONGODB_URI` is set (`.env.example` sets it) and in-memory
+  storage otherwise, where nothing survives a restart. For a quick look without Docker, leave
+  `MONGODB_URI` empty and run `npm run dev` instead of `npm run dev:mongo`.
+- **Sign-in:** registration is closed by default (`REGISTRATION_OPEN=false`). Either set
+  `REGISTRATION_OPEN=true` in `.env`, or create a user with
+  `npm run users:create -- --email you@x.co --password '...'`.
+- **Origins:** open the app at `http://localhost:3000` or `http://127.0.0.1:3000`; both are in
+  `ALLOWED_ORIGINS`. Mutating requests from any other origin are rejected.
+- **Optional telemetry:** `docker compose --profile obs up -d` starts Grafana at `http://localhost:3001`
+  and an OTLP/HTTP receiver on `:4318`; set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` to see traces.
+
 Delivery (see `docs/runbook.md`): `docker build -f apps/api/Dockerfile`, production compose under
 `infra/deploy/`, Terraform under `infra/terraform/`, `npm run deploy` / `npm run rollback`.
 Python runtime deps are pinned in `apps/api/requirements.lock`.
@@ -65,6 +86,41 @@ The API saves its output; the CLI writes JSON. Layers: `domain` / `scheduling` /
 `coverage` / `validation` / `practice` (pure, import nothing) → `pipeline` (depends on
 `LLMProvider` / `Fetcher` interfaces) → `retrieval` / `llm`
 (infrastructure) → `api` (thin) → `jobs` / `persistence`. Full diagram: `docs/ARCHITECTURE.md`.
+
+### Architecture diagram
+
+```mermaid
+graph TD
+    Browser --> Vercel["Vercel: Next.js pages + middleware"]
+    Vercel -->|"rewrite /api/*"| CF["CloudFront (HTTPS)"]
+    CF -->|"HTTP :80"| API
+    subgraph EC2["EC2 (docker compose)"]
+        API["api: FastAPI + in-process job worker"] --> Mongo[("MongoDB on a data volume")]
+    end
+    API -->|"runs jobs"| Pipeline["pipeline.run (no Mongo, no FastAPI)"]
+    CLI["CLI: npm run evaluate"] --> Pipeline
+    Pipeline --> Gemini["Gemini API"]
+    Pipeline --> Retrieval["Company sites + Hacker News (untrusted text)"]
+```
+
+The API stores each finished Kit in Mongo; the CLI writes the same Kit as JSON. Full detail in
+`docs/ARCHITECTURE.md`.
+
+## Project layout
+
+- `apps/api/` — FastAPI backend. `app/` holds the layers above (`domain`, `pipeline`, `retrieval`, `llm`,
+  `scheduling`, `coverage`, `validation`, `practice`, `regen`, `jobs`, `persistence`, `security`, `observability`,
+  `api`); `app/cli/` has the batch command (`evaluate`) and `create_user`; `tests/` has unit, property and
+  integration tests.
+- `apps/web/` — Next.js frontend, with its tests in `tests/` and beside the components.
+- `infra/` — `terraform/` for the AWS resources and `deploy/` for the production compose file and deploy scripts.
+- `fixtures/` — sample cases and output, the Kit JSON schema, ordering test vectors and the local fixture sites.
+- `docs/` — architecture, decision records (`adr/`), PRDs, the runbook and the video script.
+- `plans/` — phased implementation plans.
+- `scripts/` — helpers behind the root `npm run` commands.
+- `problem_statement/` — the assessment brief.
+- `docker-compose.yml` — local Mongo, plus a Grafana/OTLP stack under the `obs` profile.
+- `CONTEXT.md` — glossary of the domain terms used across the code and docs.
 
 ## Retrieval approach and sources
 
