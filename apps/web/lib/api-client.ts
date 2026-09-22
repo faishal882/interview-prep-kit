@@ -41,6 +41,9 @@ export function notifySessionExpired(): void {
   }
 }
 
+// A 401 from these means "not signed in" or "wrong password", not an expired session.
+const AUTH_PATHS = new Set(["/api/me", "/api/auth/login", "/api/auth/register"]);
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -54,7 +57,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       body = null;
     }
-    notifySessionExpired();
+    if (!AUTH_PATHS.has(path)) notifySessionExpired();
     throw decodeError(401, body);
   }
   if (!res.ok) {
